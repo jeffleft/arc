@@ -1,0 +1,221 @@
+[
+  {
+    "role": "system",
+    "content": [
+      {
+        "type": "text",
+        "text": "You are an ARC grid-puzzle solver. You will be given task demonstrations, from which you can infer rules and patterns that define the task. You will then be given an input grid and tools to generate the solution/output grid.\nCertainly! Here\u2019s a new, highly targeted prompt designed to address the key weaknesses observed in previous attempts, leverage strengths, and provide clearer and more actionable guidance for solving ARC puzzles:\n\n---\n\n**Expert ARC Puzzle Solver Prompt (v3) \u2014 Precision & Verification Focus**\n\nYou are an expert ARC (Abstraction and Reasoning Corpus) puzzle solver.  \nYour task is not only to identify patterns and transformations, but to explicitly test, verbalize, and verify your hypotheses at every stage, ensuring precise adherence to the task's true logical structure as demonstrated in the training examples.\n\n**For each ARC task, follow these mandatory steps:**\n\n---\n\n### 1. Systematic Training Analysis  \n- Examine and compare ALL provided input\u2013output (training) pairs.\n- For each pair, list explicitly:\n  - The changes and consistencies (e.g., colors, positions, shapes/objects, structure).\n  - Any global features (e.g., symmetry, centrality, object enclosure).\n  - Any region-level assignments (e.g., borders, centers, backgrounds).\n\n### 2. Pattern Hypothesis & *Explicit Rule Articulation*  \n- Formulate a hypothesis in clear language describing:\n  - The transformation from input to output (what specifically is changed, where, and how).\n  - The criteria that determine which cells or regions are affected.\n  - How colors or values are mapped or reassigned.\n- **State your rule in a format like:**  \n  - \"For every [object/region type] meeting [criteria], do [transformation], assigning [color/value] to [region/cells].\"\n- **Avoid assumed inversions, blanket color swaps, or speculative symmetry unless justified by *all* examples.**\n\n### 3. Targeted Pattern Verification  \n- Before applying your rule, *simulate* it mentally or in a concise textual grid and cross-check it against ALL training outputs.\n  - Explicitly note any exceptions or mismatches and revise your hypothesis if inconsistencies appear.\n  - If your rule does *not* produce exactly the observed output for each training example, iterate and refine.\n\n### 4. Output Construction Aligned to Rule  \n- With the finalized, consistent rule, apply it step by step to the test input.\n  - As you transform, reference each sub-step back to the training rule for consistency.\n  - For spatially complex tasks (letters, enclosures, structural fills), explicitly mark (in writing) which cells/regions fulfill which aspect of the rule.\n\n### 5. Error Checking & Explanation  \n- Visually and logically compare your candidate output to ALL training outputs for the analogous mapping.\n- Ask yourself:\n  - Does every filled region, outline, and color assignment *precisely* match the pattern demonstrated?\n  - Is there any region in my proposed output inconsistent with the explicit logic extracted from training examples?\n- *Explain* in 1\u20132 sentences why your output obeys the training-derived rule. If any ambiguity exists, address it.\n\n**Response Format:**\n- Clear, explicit English description of the rule/hypothesis.\n- Concise statement of how the rule applies to the current input.\n- The output grid.\n- Brief justification describing correspondence to training examples and confirmation of no extraneous elements or rule violations.\n\n---\n\n**Special Guidance:**\n- **Prioritize region-based reasoning** over pixelwise or superficial swap/symmetry. For example, if shapes are enclosed or particular areas (e.g., the \u201cinside\u201d of outlined regions) receive a specific fill or transformation, always define them spatially and apply accordingly.\n- **Avoid overgeneralizing from one feature (e.g., only central columns/rows or simple color swaps).** Always test that *all* output features from training are present and mapped correctly in your solution.\n- **Final check:** If your output would fail if directly compared side-by-side with training outputs (shape, placement, color, or fill inaccuracies), revisit and revise your solution.\n\n---\n\n## Why This Prompt Is Stronger\n\n- **Addresses Previous Weaknesses:**  \n  - Directs the model to avoid color inversion/symmetry errors by requiring region-based, explicitly justified transformation.\n  - Forces side-by-side validation with all examples so systematic errors become clear during solution construction.\n\n- **Builds on Successes:**  \n  - Retains explicit pattern analysis, but mandates hypothesis testing and reformulation when mismatches are detected.\n\n- **Guides Pattern Recognition:**  \n  - Insists on clear, stepwise articulation and simulation before application, so pattern understanding is not \u201cblack-box\u201d or superficial.\n\n- **Enhances Task Understanding:**  \n  - Requires detailed matching between proposed output and all training outputs in both logic and shape, disallowing accidental omissions or misapplied fills/symmetries.\n\n---\n\n**Use this prompt as a rigorous template for each new ARC puzzle.**  \nIt should sharply reduce errors due to color inversion, missed regional relationships, or superficial symmetry, helping the model to generate solutions that strictly respect the essential task logic.\n\nOnly respond with a single tool call. Once the tool call returns, the user will send the updated representation of the output grid. Continue with the tool calls until you are confident in your solution, then use the finish tool with a confidence score."
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Sample input 1:\n[[0, 1, 0], [1, 1, 0], [0, 1, 0], [0, 1, 1], [0, 1, 0], [1, 1, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAA3CAIAAACQBL02AAAAc0lEQVR4nO2WwQnAMAwDJdFZumGm6IZZxl0gKbTYNBDd1/hehzEjAtkcAEgOZxHB1sej63zYEgqQpRtLWRZ/mxfu+N+jDzuW/hU/ffkzUarN0hXjb9ORUIAs3VjKxeKnL/8YoQDtLaV//nSUr4SlBZTEfwPfX0tfb2ZAFwAAAABJRU5ErkJggg=="
+        }
+      },
+      {
+        "type": "text",
+        "text": "Sample output 1:\n[[0, 2, 0], [2, 2, 0], [0, 2, 0], [0, 2, 2], [0, 2, 0], [2, 2, 0], [0, 2, 0], [0, 2, 2], [0, 2, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAABSCAIAAADIPSPfAAAAk0lEQVR4nO2WMQ6EMAwEd1f8iZ6HX8+rghAtvgLZIsI7beRJM7LMMQayWQCQvH07/9vW+7nf/mdKKECWNpayKn7EhTv+B+jJkKXvxE9v/lSUq7toLuVc8SN+EgqQpY2lnCt+evMHCAWot5S++dNRvhKWFkBv/nSUr4Sl348fvvkDhALUW8q54qc3f4BQgHpLWRH/AfvEYo/oGdhAAAAAAElFTkSuQmCC"
+        }
+      },
+      {
+        "type": "text",
+        "text": "Sample input 2:\n[[0, 1, 0], [1, 0, 1], [0, 1, 0], [1, 0, 1], [0, 1, 0], [1, 0, 1]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAA3CAIAAACQBL02AAAAa0lEQVR4nO3UsQ2AQAxDUdtiFja8KdiQZcIC6ApkV/i3UV4VhTMDdwcAkq+zmeG630fXudkSAqnoj1HGjn99ufDNlhBIRX+Msp/fnvwkigZiP789+UkUDcR+fnvykygaiP389uQnUTRQ5Pgf319LX9uFfXUAAAAASUVORK5CYII="
+        }
+      },
+      {
+        "type": "text",
+        "text": "Sample output 2:\n[[0, 2, 0], [2, 0, 2], [0, 2, 0], [2, 0, 2], [0, 2, 0], [2, 0, 2], [0, 2, 0], [2, 0, 2], [0, 2, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAABSCAIAAADIPSPfAAAAg0lEQVR4nO3UIQ6AMBSD4bbhTngOjudUI/hlgrRq/S15H2YpxxhwdwAgOf32/e8653f3s7gSAqnoxihTjx+/XvjiSgikohuj7PLbk59E0UDs8tuTn0TRQOzy25OfRNFA7PLbk59E0UDs8tuTn0TRQOzy25OfRNFA7PLbk59E0UCRx/8C+8Rij6QJ1XwAAAAASUVORK5CYII="
+        }
+      },
+      {
+        "type": "text",
+        "text": "Sample input 3:\n[[0, 1, 0], [1, 1, 0], [0, 1, 0], [0, 1, 0], [1, 1, 0], [0, 1, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAA3CAIAAACQBL02AAAAbklEQVR4nO2WsQ2AQAwDbYtZ2PCnYEOWCaJ/kECOKPC1Ua46RWFVwc0CgOR0VlUc+3y0rTdbQgOK9MdStsU/rgtP/M/Ri51Iv4qfufxOZLVFepL4/ajBiUj9MG+PHfmViLQB5vLbkV+JSBtoif8AwCdLX7m4nwUAAAAASUVORK5CYII="
+        }
+      },
+      {
+        "type": "text",
+        "text": "Sample output 3:\n[[0, 2, 0], [2, 2, 0], [0, 2, 0], [0, 2, 0], [2, 2, 0], [0, 2, 0], [0, 2, 0], [2, 2, 0], [0, 2, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAABSCAIAAADIPSPfAAAAiElEQVR4nO2WMQqAQBADk+Cf7H24va86EVu1kAQLM+2xc82wLMcYcDMBIHn5dvy3zNdz6/YwJQRQpT+WMhU/7gtv/C/Qm6FKv4mf3fxW5NWd/FzKxm9HfiUqDcCePXbkV6LSAOzmtyO/EpUGYOO3I78SlQZgzx478itRaQB289uRX4lKA0Ti3wFalWOPNRAwHgAAAABJRU5ErkJggg=="
+        }
+      },
+      {
+        "type": "text",
+        "text": "\nTask input grid:\n[[1, 1, 1], [0, 1, 0], [0, 1, 0], [1, 1, 1], [0, 1, 0], [0, 1, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAA3CAIAAACQBL02AAAAbUlEQVR4nO2WsQ2AMBAD/RazsGGmYEOWMaIPFMhfoPhaK1edXilJcLMBqHFONx37t4logJEuLK22+Kumm6S3+J9fEQ0w0oWllfjt0K9EpL+Kf+Tb44RWW6Q3ufx+2OBEpH4q8duhX4lIG2iJ/wL+l0tfEPR+eAAAAABJRU5ErkJggg=="
+        }
+      }
+    ]
+  },
+  {
+    "content": null,
+    "refusal": null,
+    "role": "assistant",
+    "annotations": [],
+    "audio": null,
+    "function_call": null,
+    "tool_calls": [
+      {
+        "id": "call_sJ1YuVPdmjmQzTG8sCwMtARl",
+        "function": {
+          "arguments": "{\"size\":9}",
+          "name": "resize_grid"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "call_sJ1YuVPdmjmQzTG8sCwMtARl",
+    "name": "resize_grid",
+    "content": "{\"status\": \"success\"}"
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Current output grid state:\n[[1, 1, 1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFIAAABSCAIAAABIThTMAAAAz0lEQVR4nO3ZsXEDMRDFUCzGtahDVeEO3QyV38gOHNmHfemPGBFDzjmHng9gnl9vt/P5+OU08346549MkiRJkiRJkiRJkjThXJnvb/z/3CSbK1eSJEmSJEmSJEmzuXK1uXI3kiRJkiRJkiRJE86V534GNUiSJEmSJEmSJE04V2ZfVxokSZIkSZIkSZJmc+Vqc+VuJEmSJEmSJEmSppkr/HDsG0+SJEmSJEmSJEmSNJsroUmSJEmSJEmSJEmSZnMlNEmSJEmSJEmSJEnSNHPlBb2IGjhmJMFbAAAAAElFTkSuQmCC"
+        }
+      }
+    ]
+  },
+  {
+    "content": null,
+    "refusal": null,
+    "role": "assistant",
+    "annotations": [],
+    "audio": null,
+    "function_call": null,
+    "tool_calls": [
+      {
+        "id": "call_3CKQQH2LUIt4aoKVQ3812dhr",
+        "function": {
+          "arguments": "{}",
+          "name": "copy_grid"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "call_3CKQQH2LUIt4aoKVQ3812dhr",
+    "name": "copy_grid",
+    "content": "{\"status\": \"success\"}"
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Current output grid state:\n[[1, 1, 1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFIAAABSCAIAAABIThTMAAAAz0lEQVR4nO3ZsXEDMRDFUCzGtahDVeEO3QyV38gOHNmHfemPGBFDzjmHng9gnl9vt/P5+OU08346549MkiRJkiRJkiRJkjThXJnvb/z/3CSbK1eSJEmSJEmSJEmzuXK1uXI3kiRJkiRJkiRJE86V534GNUiSJEmSJEmSJE04V2ZfVxokSZIkSZIkSZJmc+Vqc+VuJEmSJEmSJEmSppkr/HDsG0+SJEmSJEmSJEmSNJsroUmSJEmSJEmSJEmSZnMlNEmSJEmSJEmSJEnSNHPlBb2IGjhmJMFbAAAAAElFTkSuQmCC"
+        }
+      }
+    ]
+  },
+  {
+    "content": null,
+    "refusal": null,
+    "role": "assistant",
+    "annotations": [],
+    "audio": null,
+    "function_call": null,
+    "tool_calls": [
+      {
+        "id": "call_V98a4P2aQQGzoTyOk4zLlMJt",
+        "function": {
+          "arguments": "{\"positions\":[{\"x\":0,\"y\":0,\"color\":0},{\"x\":1,\"y\":0,\"color\":2},{\"x\":2,\"y\":0,\"color\":0},{\"x\":0,\"y\":1,\"color\":2},{\"x\":1,\"y\":1,\"color\":2},{\"x\":2,\"y\":1,\"color\":2},{\"x\":0,\"y\":2,\"color\":0},{\"x\":1,\"y\":2,\"color\":2},{\"x\":2,\"y\":2,\"color\":0},{\"x\":0,\"y\":3,\"color\":0},{\"x\":1,\"y\":3,\"color\":2},{\"x\":2,\"y\":3,\"color\":0},{\"x\":0,\"y\":4,\"color\":0},{\"x\":1,\"y\":4,\"color\":2},{\"x\":2,\"y\":4,\"color\":0},{\"x\":0,\"y\":5,\"color\":2},{\"x\":1,\"y\":5,\"color\":2},{\"x\":2,\"y\":5,\"color\":2},{\"x\":0,\"y\":6,\"color\":0},{\"x\":1,\"y\":6,\"color\":2},{\"x\":2,\"y\":6,\"color\":0},{\"x\":0,\"y\":7,\"color\":0},{\"x\":1,\"y\":7,\"color\":2},{\"x\":2,\"y\":7,\"color\":0},{\"x\":0,\"y\":8,\"color\":0},{\"x\":1,\"y\":8,\"color\":2},{\"x\":2,\"y\":8,\"color\":0}]}",
+          "name": "fill_tiles"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "call_V98a4P2aQQGzoTyOk4zLlMJt",
+    "name": "fill_tiles",
+    "content": "{\"status\": \"success\"}"
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Current output grid state:\n[[0, 2, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 0, 0, 0, 0, 0, 0], [0, 2, 0, 0, 0, 0, 0, 0, 0], [0, 2, 0, 0, 0, 0, 0, 0, 0], [0, 2, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 0, 0, 0, 0, 0, 0], [0, 2, 0, 0, 0, 0, 0, 0, 0], [0, 2, 0, 0, 0, 0, 0, 0, 0], [0, 2, 0, 0, 0, 0, 0, 0, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFIAAABSCAIAAABIThTMAAAA0UlEQVR4nO3aIW5EQQzAUMfaO5X34OU91V+VjrYFRavvPBqFDLKimeu66HkAM/Ny9vMinx+v976+/9h6/5EkSZIkSZIkSZIkTTdX+L1J/jd6kybZXDlJkiRJkiRJkiRNN1dmrysRkiRJkiRJkiRJs7ly2ly5G0mSJEmSJEmSpNlcOW2u3I0kSZIkSZIkSdJ0c4X9uxIhSZIkSZIkSZI03VyZva5ESJIkSZIkSZIkzebKaXPlbiRJkiRJkiRJkmZz5bS5cjeSJEmSJEmSJEnTzJUnFRMEnvIectgAAAAASUVORK5CYII="
+        }
+      }
+    ]
+  },
+  {
+    "content": null,
+    "refusal": null,
+    "role": "assistant",
+    "annotations": [],
+    "audio": null,
+    "function_call": null,
+    "tool_calls": [
+      {
+        "id": "call_YOLmVsch2PoKNEA7gcgIt69h",
+        "function": {
+          "arguments": "{\"confidence\":10}",
+          "name": "finish"
+        },
+        "type": "function"
+      }
+    ]
+  }
+]

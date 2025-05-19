@@ -1,0 +1,22 @@
+{
+  "step": 1,
+  "grid": [
+    [
+      7,
+      0,
+      7
+    ],
+    [
+      7,
+      7,
+      7
+    ],
+    [
+      7,
+      7,
+      0
+    ]
+  ],
+  "tool": "fill_tiles",
+  "description": "After 1 operations"
+}

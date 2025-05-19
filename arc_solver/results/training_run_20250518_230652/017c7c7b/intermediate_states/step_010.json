@@ -1,0 +1,22 @@
+{
+  "step": 10,
+  "grid": [
+    [
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      2
+    ],
+    [
+      0,
+      2,
+      0
+    ]
+  ],
+  "tool": "resize_grid",
+  "description": "After 1 operations"
+}

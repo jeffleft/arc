@@ -1,0 +1,8 @@
+openai
+numpy
+Pillow
+pandas
+tqdm
+python-dotenv
+matplotlib
+seaborn

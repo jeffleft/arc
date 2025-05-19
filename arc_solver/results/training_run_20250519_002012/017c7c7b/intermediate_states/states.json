@@ -1,0 +1,199 @@
+[
+  {
+    "step": 0,
+    "grid": [
+      [
+        1,
+        1,
+        1
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        1
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        0
+      ]
+    ],
+    "tool": "initial",
+    "description": "Initial grid state",
+    "rationale": "Starting state before any transformations"
+  },
+  {
+    "step": 1,
+    "grid": [
+      [
+        1,
+        1,
+        1
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        1
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ]
+    ],
+    "tool": "resize_grid",
+    "description": "After 1 operations",
+    "rationale": "Extend the input grid from 6 rows to 9 rows to match the output pattern in the examples."
+  },
+  {
+    "step": 2,
+    "grid": [
+      [
+        1,
+        2,
+        1
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        1,
+        2,
+        1
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        2,
+        0
+      ]
+    ],
+    "tool": "fill_pattern",
+    "description": "After 1 operations",
+    "rationale": "Fill the entire middle column with '2' to form a continuous vertical band, as in the outputs."
+  },
+  {
+    "step": 3,
+    "grid": [
+      [
+        2,
+        2,
+        2
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        2,
+        2,
+        2
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        2,
+        2,
+        2
+      ],
+      [
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        2,
+        0
+      ]
+    ],
+    "tool": "fill_tiles",
+    "description": "After 1 operations",
+    "rationale": "For rows that start new horizontal bands (0, 3, 6), convert the edge values that were 1s in the input to 2, matching sample outputs."
+  }
+]
