@@ -400,7 +400,7 @@ class ARCSolver:
                              "the solution/output grid.\n"
                              f"{evolved_instructions}"
                              "\n\nFirst, return your reasoning about what the underlying rules and possible solution should be. "
-                             "Next, execute the tool calls to generate the output grid. Once each tool call returns, the user will send the "
+                             "Next, execute the tool calls to generate the output grid (do not output the grid directly). Once each tool call returns, the user will send the "
                              "updated representation of the output grid. Continue with the tool calls until you are confident in your "
                              "solution, then use the finish tool with a confidence score.")
                 }
@@ -467,7 +467,7 @@ class ARCSolver:
         while True:
             # Get completion from GPT-4
             response = self.client.chat.completions.create(
-                model="gpt-4.1",
+                model="o4-mini",
                 messages=messages,
                 tools=self.tools,
                 tool_choice="auto"
@@ -480,7 +480,7 @@ class ARCSolver:
             messages.append(assistant_message)
 
             # Check if there are no tool calls
-            if not assistant_message.tool_calls[0]:
+            if not assistant_message.tool_calls:
                 print(assistant_message)
                 continue
             

@@ -119,7 +119,7 @@ Please explain why the solution is {'correct' if is_correct else 'incorrect'}. F
 1. The patterns and transformations that should have been applied
 2. Where the solution {'matches' if is_correct else 'deviates from'} the expected pattern
 3. Any insights about the underlying rule or concept
-4. How the model went wrong with its plan"""
+4. How the model went wrong/right with its plan"""
                     },
                     {
                         "type": "image_url",
