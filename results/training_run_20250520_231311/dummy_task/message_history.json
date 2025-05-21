@@ -1,0 +1,46 @@
+[
+  {
+    "role": "system",
+    "content": [
+      {
+        "type": "text",
+        "text": "You are an ARC grid-puzzle solver. You will be given task demonstrations, from which you can infer rules and patterns that define the task. You will then be given an input grid and tools to generate the solution/output grid.\nYou are an expert ARC puzzle solver. Your task is to deduce and implement the **core structural transformation rule** relating inputs to outputs in ARC tasks. Use the following methodology to ensure an accurate, globally consistent solution:\n\n---\n\n**1. Comprehensive Structural Analysis**\n- For each training pair, examine the **full input and output grids** side by side.\n- Focus on relationships at the level of **objects, shapes, lines, enclosures, boundaries, and connectivity** - not just individual cell changes.\n- Ask:\n  - Are regions expanded, contracted, outlined, filled, or otherwise modified as wholes?\n  - Are boundaries or interiors treated differently?\n  - Are there extensions, connections, or symmetry in line segments or shapes?\n\n**2. Hypothesis Formation (Global Rule Synthesis)**\n- After reviewing examples, explicitly **formulate a stepwise natural-language rule** for transforming input to output, referencing structural, topological, or geometric properties, not just color or position.\n- Specify:\n  - What constitutes an \"object\" (e.g., connected shape, enclosure).\n  - Which components are modified (e.g., boundaries, interiors, extended lines).\n  - How relationships (enclosure, adjacency, symmetry) affect transformations.\n- Confirm that your rule accounts for *all training examples* - pay close attention to edge cases and exceptions.\n\n**3. Algorithmic Implementation**\n- Devise your solution using **global and object-level operations**:\n  - Favor algorithms such as connected-component labeling, boundary tracing, global flood-fill, or path construction. `copy_selection` can be very useful!\n  - Avoid any transformation that simply matches colors, upscales pixels, or applies local heuristics unless the examples conclusively require it.\n  - If necessary, decompose each output into steps matching your structural rule (e.g., first trace outlines, then fill interiors).\n\n**4. Alignment and Validation**\n- After generating your output, **verify for each test case**:\n  - The grid dimensions match the expected output.\n  - The structural features (object placement, shape, connectivity, boundaries, fills) align exactly.\n  - There are no off-by-one errors or unintentional shifts.\n- **If a discrepancy is detected, revisit your rule and adjust as needed** to fit all examples consistently.\n\n**5. Explanation and Justification**\n- For every transformation, **briefly justify** why your rule matches the observed input-output pairs, describing the evidence for your structural interpretation.\n\n---\n\n**Core Principle:**  \nAlways prioritize **global, object-based, and structural reasoning** over simple pixelwise transformations. Treat the puzzle as a mapping of relationships between shapes, regions, and boundaries - ensuring your solution captures the intended pattern logic demonstrated across all examples.\n\nFirst, return your reasoning about what the underlying rules and possible solution should be. Next, execute the tool calls to generate the output grid (do not output the grid directly). Once each tool call returns, the user will send the updated representation of the output grid. Continue with the tool calls until you are confident in your solution, then use the finish tool with a confidence score."
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Sample input 1:\n[[0, 0], [0, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADEAAAAxCAIAAAD8/tZLAAABZ0lEQVR4nO2YvW2FMBRGTZQaKECwA3SU/AyAhGADWAYxBx2DMAoICiTsAdBNlUdeQy7285OV+NT3QwdjWR8mIACltCzLOI7LsqSUYiL7vtd1bZrmxcwHEaBt2yzLxnFM07TrOkykKIooigzDuBoSWacgCOZ5BoBpmsIwxESWZQEAy7IuZoScHMc5jgMAjuNwXRcfvHYS+naSEHLyPG9dV0LIsiye571IScwpz/NhGAghwzDkef4iJWIAAHeYMVbX9bZtjuP0fW9ZFjJo2zalVIqTJP7cHpeEdsKhnXBoJxyfHJlf2s83j9P47ryK63Q6McaqqkqSpKoqxpgSThxFVhaPdocvsneffHueo8jKdlJ7j0sqshycTpKKLAdnz8QXWdlnJk/3/d/nuDro/xYcKjrp/oTjyYlS2jQN/rdfEk9OqIu9N/CzhGAu9t7dVXzfv/dCclB+jyuCdsKh+xMOFZ10f8KhotMX4qPXm8uFNKsAAAAASUVORK5CYII="
+        }
+      },
+      {
+        "type": "text",
+        "text": "Sample output 1:\n[[1, 1], [1, 1]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADEAAAAxCAIAAAD8/tZLAAABnUlEQVR4nO2YP4rCQBSHX5atHYtI9ALbaGfpnwMEJCnTjRew3MpaUuwp7AKC2OgJPMXWSgwIzhwgvC2EzQaW8Mg4ZnaZr34/+Jg8wm8GUAEhRBAEo9EoCAIhBCVyu904561Wq2LmBRRYrVbT6fR4PE4mkziOKZHZbDYcDh3HqRpSOad+v38+nxHxdDoNBgNKJE1TRGSMVcwoObmum+c5IuZ53ul06MFqJ6VvpwklJ8/zLpcLAKRp6nneg5TUnHzfT5IEAJIk8X3/QUrgIGLtsJSSc369Xl3XXa/XjDFisN1uCyG0OGni3+24JqwTDetEwzrReK2Rcd4/KWP48VZv3sRzKpyklGEYjsfjMAyllEY41Siy2p0Oh0MURQAQRdF+v29O6YdTlmXdbhcAer1elmXNKRm+45qKbA0KJ01FtgbFP3O5XHLOt9vtvcga4cQY2+12zZkUmL3j5mDvLTRMdLL9iUbJSQgxn8/p135NlJxID3v6KTltNpvFYtGUyjclp3t/ahzjd9wQrBONX5wqXhqfwx85p8ax/YmGiU5fUnIPHSKSSdIAAAAASUVORK5CYII="
+        }
+      },
+      {
+        "type": "text",
+        "text": "\nTask input grid:\n[[0, 1], [1, 0]]"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADEAAAAxCAIAAAD8/tZLAAABpklEQVR4nO2YMW6DMBSGH1XnOAMR5AJdyJaRhAMgRTCykUv0CChDT5GNkSU5QU7ROQiQIsU+AHodopZGqugLjoNb8U0MftIn8/z024AScM6DIHBdNwgCzjml5Hw+x3E8Go1a1jyBBEmSeJ53OByWy+Vms6GUrFar+XxuGEbbIpl9chwnz3NEPB6Ps9mMUlIUBSIyxlrWSDmZplnXNSLWdT2ZTOiF7U5S/04RUk6WZZVlCQBFUViWdSclOSff99M0BYA0TX3fv5MSGIjYuVgIEcfx6XQyTXO73TLGiIXj8ZhzrsRJEf+uxxUxONEYnGgMTjSeO9T8kn4++ZrGxus7af3by+VDx31qnIQQYRguFoswDIUQWjh1CLLKnfb7fRRFABBF0W6360/pm1NVVbZtA8B0Oq2qqj8lzXtcUZDtQOOkKMh2oMmZ9CCremY2c5wxlmUZpVg1eve4Pgz3Fho6OnXKTzee7Vtnh477dOXEOV+v1/RrvyKunEgPe+q5mgVlWdq23f7oAQ/up0t+6h3te1wTBicaPzi1H7oH8Ef2qXeG/ERDR6cPd4AmFIXmgkwAAAAASUVORK5CYII="
+        }
+      }
+    ]
+  }
+]

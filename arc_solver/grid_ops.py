@@ -6,7 +6,38 @@ class GridOperations:
         """Initialize with a grid."""
         self.grid = np.array(grid)
         self.height, self.width = self.grid.shape
+        self.dynamic_tools: Dict[str, Callable] = {}
         
+    def register_dynamic_tool(self, tool_name: str, tool_code_str: str) -> None:
+        """Register a dynamic tool from a code string."""
+        try:
+            local_scope = {}
+            # Add numpy to the scope for the dynamic tool
+            exec_globals = {"np": np}
+            exec(tool_code_str, exec_globals, local_scope)
+            
+            if 'dynamic_tool_function' in local_scope:
+                self.dynamic_tools[tool_name] = local_scope['dynamic_tool_function']
+            else:
+                # Fallback: try to find a function with the same name as the tool
+                if tool_name in local_scope and callable(local_scope[tool_name]):
+                    self.dynamic_tools[tool_name] = local_scope[tool_name]
+                else:
+                    print(f"Error: 'dynamic_tool_function' or function '{tool_name}' not found in tool code for {tool_name}.")
+        except Exception as e:
+            print(f"Error registering dynamic tool {tool_name}: {e}")
+
+    def execute_dynamic_tool(self, tool_name: str, **kwargs) -> None:
+        """Execute a registered dynamic tool."""
+        if tool_name in self.dynamic_tools:
+            try:
+                self.dynamic_tools[tool_name](self, **kwargs)
+            except Exception as e:
+                print(f"Error executing dynamic tool {tool_name}: {e}")
+        else:
+            print(f"Error: Dynamic tool {tool_name} not found.")
+            # Potentially raise an error here, e.g., raise ValueError(f"Dynamic tool {tool_name} not found.")
+
     def fill_tiles(self, positions: List[Dict[str, int]]) -> None:
         """Fill specific tiles with given colors."""
         for pos in positions:

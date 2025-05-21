@@ -9,10 +9,15 @@ from grid_ops import GridOperations
 import os
 
 class ARCSolver:
-    def __init__(self, api_key: str, results_dir: str = None):
+    def __init__(self, api_key: str, results_dir: str = None, dynamic_tool_schemas: Optional[List[Dict]] = None, dynamic_tool_code: Optional[Dict[str, str]] = None):
         """Initialize the ARC solver with OpenAI API key."""
         self.client = OpenAI(api_key=api_key)
-        self.tools = self._define_tools()
+        self.dynamic_tool_schemas = dynamic_tool_schemas
+        self.dynamic_tool_code = dynamic_tool_code
+        if dynamic_tool_schemas:
+            self.tools = dynamic_tool_schemas
+        else:
+            self.tools = self._define_tools()
         self.message_history = []
         self.intermediate_grids = []
         self.results_dir = results_dir
@@ -377,6 +382,17 @@ class ARCSolver:
         
         # Initialize grid operations
         grid_ops = GridOperations(input_grid)
+
+        # Register dynamic tools
+        if self.dynamic_tool_code:
+            for tool_name, tool_code_str in self.dynamic_tool_code.items():
+                try:
+                    grid_ops.register_dynamic_tool(tool_name, tool_code_str)
+                    # Optional: print(f"Successfully registered dynamic tool: {tool_name}")
+                except Exception as e:
+                    # Handle registration errors, e.g., print a warning
+                    print(f"Warning: Failed to register dynamic tool {tool_name}. Error: {e}")
+                    # Decide if this should halt execution or just skip the tool
         
         # Save initial grid state
         initial_state = {
@@ -489,73 +505,101 @@ class ARCSolver:
                 function_name = tool_call.function.name
                 function_args = json.loads(tool_call.function.arguments)
                 rationale = function_args.pop("rationale", "No rationale provided")
+                tool_executed_successfully = False
                 
-                # Apply the appropriate tool operation
-                if function_name == "fill_tiles":
-                    grid_ops.fill_tiles(function_args["positions"])
-                elif function_name == "copy_grid":
-                    grid_ops.copy_grid()
-                elif function_name == "fill_pattern":
-                    grid_ops.fill_pattern(
-                        function_args["start_x"],
-                        function_args["start_y"],
-                        function_args["direction"],
-                        function_args["interval"],
-                        function_args["color"]
-                    )
-                elif function_name == "fill_rectangle":
-                    grid_ops.fill_rectangle(
-                        function_args["x1"],
-                        function_args["y1"],
-                        function_args["x2"],
-                        function_args["y2"],
-                        function_args["color"]
-                    )
-                elif function_name == "translate":
-                    grid_ops.translate(
-                        function_args["dx"],
-                        function_args["dy"]
-                    )
-                elif function_name == "resize_grid":
-                    grid_ops.resize_grid(function_args["width"], function_args["height"])
-                elif function_name == "copy_selection":
-                    grid_ops.copy_selection(
-                        function_args["start_x"],
-                        function_args["start_y"],
-                        function_args["end_x"],
-                        function_args["end_y"],
-                        function_args["paste_origins"]
-                    )
-                elif function_name == "finish":
-                    current_grid = grid_ops.get_grid()
-                    current_image = self._grid_to_image(current_grid)
-                    return current_grid, function_args["confidence"]
+                if self.dynamic_tool_code and function_name in self.dynamic_tool_code:
+                    try:
+                        # Ensure 'rationale' is not passed if the dynamic tool doesn't expect it,
+                        # or modify dynamic tool template to always accept **kwargs or rationale.
+                        # For now, assume dynamic tools handle their own args from function_args.
+                        grid_ops.execute_dynamic_tool(function_name, **function_args)
+                        tool_executed_successfully = True
+                    except Exception as e:
+                        print(f"Error executing dynamic tool {function_name}: {e}")
+                        # Potentially send an error message back to the LLM via tool_response content
+                        # For now, we'll let it fall through to the generic success message,
+                        # but an actual error state would be better.
+                        tool_executed_successfully = False # Or handle error explicitly
+                else:
+                    # Existing built-in tool logic
+                    tool_executed_successfully = True # Assume success unless error within block
+                    if function_name == "fill_tiles":
+                        grid_ops.fill_tiles(function_args["positions"])
+                    elif function_name == "copy_grid":
+                        grid_ops.copy_grid()
+                    elif function_name == "fill_pattern":
+                        grid_ops.fill_pattern(
+                            function_args["start_x"],
+                            function_args["start_y"],
+                            function_args["direction"],
+                            function_args["interval"],
+                            function_args["color"]
+                        )
+                    elif function_name == "fill_rectangle":
+                        grid_ops.fill_rectangle(
+                            function_args["x1"],
+                            function_args["y1"],
+                            function_args["x2"],
+                            function_args["y2"],
+                            function_args["color"]
+                        )
+                    elif function_name == "translate":
+                        grid_ops.translate(
+                            function_args["dx"],
+                            function_args["dy"]
+                        )
+                    elif function_name == "resize_grid":
+                        grid_ops.resize_grid(function_args["width"], function_args["height"])
+                    elif function_name == "copy_selection":
+                        grid_ops.copy_selection(
+                            function_args["start_x"],
+                            function_args["start_y"],
+                            function_args["end_x"],
+                            function_args["end_y"],
+                            function_args["paste_origins"]
+                        )
+                    elif function_name == "finish":
+                        current_grid = grid_ops.get_grid()
+                        # current_image = self._grid_to_image(current_grid) # Not needed here
+                        return current_grid, function_args["confidence"] # Return directly
+                    else:
+                        # Unknown built-in tool
+                        print(f"Warning: Unknown built-in tool called: {function_name}")
+                        tool_executed_successfully = False # Mark as not successful
                 
                 # Add tool response to message history
+                # The content of tool_response might need to reflect execution status if errors occur.
+                tool_response_content = {"status": "success"}
+                if not tool_executed_successfully:
+                    tool_response_content = {"status": "error", "message": f"Tool {function_name} failed to execute."}
+
                 tool_response = {
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "name": function_name,
-                    "content": json.dumps({"status": "success"})
+                    "content": json.dumps(tool_response_content)
                 }
                 self.message_history.append(tool_response)
                 self._save_message_history()
                 messages.append(tool_response)
             
-            # Save intermediate grid state after all tool calls
+            # Save intermediate grid state after all tool calls in this assistant message
+            # Rationale for the step will be the last rationale from the list of tool_calls if multiple,
+            # or the single rationale if only one tool_call.
+            # This might need refinement if different rationales per tool call are important for the overall step.
             current_grid = grid_ops.get_grid()
             state = {
                 "step": step,
                 "grid": current_grid,
                 "tool": "multiple" if len(assistant_message.tool_calls) > 1 else assistant_message.tool_calls[0].function.name,
-                "description": f"After {len(assistant_message.tool_calls)} operations",
-                "rationale": rationale
+                "description": f"After {len(assistant_message.tool_calls)} operations. Last rationale: {rationale}",
+                "rationale": rationale # Uses the last rationale from the loop
             }
             self.intermediate_grids.append(state)
             self._save_intermediate_state(**state)
             step += 1
             
-            # Add the current grid state to the message history
+            # Add the current grid state to the message history for the next turn
             current_image = self._grid_to_image(current_grid)
             grid_update = {
                 "role": "user",

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from solver import ARCSolver
 from grid_ops import GridOperations
 from prompt_evolution import PromptEvolution
+from tool_evolution import ToolEvolution
 import shutil
 from datetime import datetime
 import base64
@@ -70,7 +71,7 @@ def save_results(task_name: str, results_dir: str, task_results: Dict):
             }, f, indent=2)
 
 
-def evaluate_solution(predicted: List[List[int]], expected: List[List[int]], confidence: int, plan: str, solver: ARCSolver) -> Tuple[int, str]:
+def evaluate_solution(predicted: List[List[int]], expected: List[List[int]], confidence: int, plan: str, solver: ARCSolver, toolset_id: str, tool_schemas: List[Dict]) -> Tuple[int, str]:
     """Evaluate the solution accuracy and get LLM commentary.
     Returns (score, commentary) where score is 0 or 1."""
     if len(predicted) != len(expected) or len(predicted[0]) != len(expected[0]):
@@ -115,11 +116,15 @@ Model's confidence that it is correct: {confidence}/10
 Model's initial plan for attacking the task:
 {plan}
 
+Available tools during this attempt (Toolset ID: {toolset_id}):
+{json.dumps(tool_schemas, indent=2)}
+
 Please explain why the solution is {'correct' if is_correct else 'incorrect'}. Focus on:
 1. The patterns and transformations that should have been applied
 2. Where the solution {'matches' if is_correct else 'deviates from'} the expected pattern
 3. Any insights about the underlying rule or concept
-4. How the model went wrong/right with its plan"""
+4. How the model went wrong/right with its plan
+5. **Critique of the available tools**: Were they sufficient? Were they used effectively? Did any tool seem to be missing or did any existing tool hinder the process? Could a different or new tool have led to a better outcome?"""
                     },
                     {
                         "type": "image_url",
@@ -154,15 +159,70 @@ def main():
     os.makedirs(results_dir, exist_ok=True)
     
     # Initialize components
-    solver = ARCSolver(api_key, results_dir)
     prompt_evolution = PromptEvolution(api_key)
     
+    # Define the draw_border tool details
+    draw_border_schema = {
+        "type": "function",
+        "function": {
+            "name": "draw_border",
+            "description": "Draws a border of a specified color around the entire grid.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "color": {"type": "integer", "description": "The color for the border."},
+                    "rationale": {"type": "string", "description": "Explanation of why this operation is being performed."}
+                },
+                "required": ["color", "rationale"]
+            }
+        }
+    }
+    draw_border_code = """
+def dynamic_tool_function(grid_ops_self, color):
+    grid = grid_ops_self.grid
+    height, width = grid.shape
+    if height > 0 and width > 0:
+        # Ensure color is an int, as it might come from JSON
+        color_val = int(color) 
+        grid[0, :] = color_val
+        if height > 1: # Avoid double-painting if 1-row grid
+            grid[height-1, :] = color_val
+        if width > 1: # Avoid double-painting if 1-col grid
+            grid[:, 0] = color_val
+            grid[:, width-1] = color_val
+    grid_ops_self.grid = grid
+"""
+
+    # Initialize ToolEvolution with predefined toolsets
+    tool_evolution = ToolEvolution(initial_toolsets=[]) # Initialize empty
+
+    # Toolset 1: Default custom tool from get_initial_tools()
+    # Note: get_initial_tools is an instance method, so we call it on the instance.
+    initial_schemas, initial_code = tool_evolution.get_initial_tools()
+    toolset1 = {
+        "id": "default_custom_toolset", 
+        "schemas": initial_schemas,
+        "code": initial_code
+    }
+
+    # Toolset 2: The new draw_border tool
+    toolset2_schemas = [draw_border_schema] 
+    toolset2_code = {"draw_border": draw_border_code}
+    toolset2 = {
+        "id": "border_toolset",
+        "schemas": toolset2_schemas,
+        "code": toolset2_code
+    }
+    
+    tool_evolution.available_toolsets = [toolset1, toolset2]
+    tool_evolution.current_toolset_index = 0 # Ensure it starts from the first toolset
+
     # Save initial prompt
     with open(os.path.join(results_dir, "initial_prompt.txt"), "w") as f:
         f.write(prompt_evolution._get_initial_prompt())
     
     # Load tasks
-    data_dir = "../data"
+    data_dir = "./dummy_data_arc" # Changed to local dummy data
     training_dir = os.path.join(data_dir, "training")
     
     # Process each task (limited to 5)
@@ -179,6 +239,12 @@ def main():
         
         # Get current prompt
         current_prompt = prompt_evolution.evolve_prompt()
+        current_toolset = tool_evolution.evolve_toolset()
+
+        # Instantiate ARCSolver with the current toolset
+        solver = ARCSolver(api_key, results_dir, 
+                           dynamic_tool_schemas=current_toolset['schemas'], 
+                           dynamic_tool_code=current_toolset['code'])
         
         # Get the single test case
         test_case = task["test"][0]
@@ -197,14 +263,24 @@ def main():
         plan = [x for x in solver.get_message_history() if x.get("role") == "assistant"][0]["content"]
         
         # Evaluate the solution
-        score, commentary = evaluate_solution(predicted_output, expected_output, confidence, plan, solver)
+        score, commentary = evaluate_solution(
+            predicted_output, 
+            expected_output, 
+            confidence, 
+            plan, 
+            solver,
+            current_toolset['id'],
+            current_toolset['schemas']
+        )
         
         # Update prompt evolution with score and commentary
         prompt_evolution.add_prompt(current_prompt, score, commentary)
+        tool_evolution.add_toolset_performance(current_toolset['id'], score, commentary)
         
         # Prepare task results
         task_results = {
             "task_name": task_file,
+            "toolset_id": current_toolset['id'],
             "input_grid": input_grid,
             "expected_output": expected_output,
             "predicted_output": predicted_output,
@@ -237,6 +313,10 @@ def main():
     # Save final prompt evolution history
     with open(os.path.join(results_dir, "prompt_evolution_history.json"), "w") as f:
         json.dump(prompt_evolution.prompt_history, f, indent=2)
+
+    # Save final tool evolution history
+    with open(os.path.join(results_dir, "tool_evolution_history.json"), "w") as f:
+        json.dump(tool_evolution.toolset_history, f, indent=2)
 
 if __name__ == "__main__":
     main() 
