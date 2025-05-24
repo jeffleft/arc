@@ -1,0 +1,22 @@
+{
+  "step": 2,
+  "grid": [
+    [
+      3,
+      3,
+      3
+    ],
+    [
+      5,
+      0,
+      0
+    ],
+    [
+      0,
+      5,
+      0
+    ]
+  ],
+  "tool": "fill_rectangle",
+  "description": "After 1 operations"
+}

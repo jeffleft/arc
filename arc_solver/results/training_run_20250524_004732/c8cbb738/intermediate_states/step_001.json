@@ -1,0 +1,71 @@
+{
+  "step": 1,
+  "grid": [
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      1
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      1,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ]
+  ],
+  "tool": "resize_grid",
+  "description": "After 1 operations",
+  "rationale": "Resize to output size 7x7 because maximum offset across all seed clusters is 3, so grid size = 2*3+1 = 7."
+}

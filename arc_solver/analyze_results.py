@@ -207,11 +207,11 @@ def main():
         st.subheader("Current Task")
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.image(selected_task / "input.png", caption="Input")
+            st.image(str(selected_task / "input.png"), caption="Input")
         with col2:
-            st.image(selected_task / "expected.png", caption="Expected")
+            st.image(str(selected_task / "expected.png"), caption="Expected")
         with col3:
-            st.image(selected_task / "predicted.png", caption="Predicted")
+            st.image(str(selected_task / "predicted.png"), caption="Predicted")
         
         # Show plan
         message_history = load_json(selected_task / "message_history.json")
@@ -228,7 +228,7 @@ def main():
                 st.write("Rationale:", tool_call['rationale'])
                 st.write("Tool Call Args: ", tool_call["args"])
                 if tool_call['state']:
-                    st.image(selected_task / f"intermediate_states/step_{tool_call['state']['step']:03d}.png", 
+                    st.image(str(selected_task / f"intermediate_states/step_{tool_call['state']['step']:03d}.png"), 
                             caption=f"After {tool_call['tool']}")
         
         # Show final analysis

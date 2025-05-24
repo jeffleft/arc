@@ -171,7 +171,7 @@ def main():
         if not task_file.endswith(".json"):
             continue
             
-        if task_count >= 5:
+        if task_count >= 2:
             break
             
         task_path = os.path.join(training_dir, task_file)

@@ -226,76 +226,85 @@ class ARCSolver:
 
     def _grid_to_image(self, grid: List[List[int]]) -> str:
         """Convert a grid to a base64-encoded PNG image.
-        Each tile is 8x8 pixels with 1px white separators.
-        Includes coordinate labels on the top and left sides."""
-        # Convert grid to numpy array
+        Each tile is 16x16 pixels (matching ViT patches) with 1px white separators.
+        Includes coordinate labels on the top and left sides.
+        Image is padded to standard sizes: 144x144 for grids <=8x8, 256x256 for grids <=15x15, 512x512 otherwise."""
         arr = np.array(grid, dtype=np.uint8)
-        
-        # Create a color mapping matching ARC's official colors
         colors = {
-            0: (0, 0, 0),           # Black
-            1: (0, 116, 217),       # Blue (#0074D9)
-            2: (255, 65, 54),       # Red (#FF4136)
-            3: (46, 204, 64),       # Green (#2ECC40)
-            4: (255, 220, 0),       # Yellow (#FFDC00)
-            5: (170, 170, 170),     # Grey (#AAAAAA)
-            6: (240, 18, 190),      # Fuschia (#F012BE)
-            7: (255, 133, 27),      # Orange (#FF851B)
-            8: (127, 219, 255),     # Teal (#7FDBFF)
-            9: (135, 12, 37)        # Brown (#870C25)
+            0: (0, 0, 0), 1: (0, 116, 217), 2: (255, 65, 54), 3: (46, 204, 64),
+            4: (255, 220, 0), 5: (170, 170, 170), 6: (240, 18, 190), 7: (255, 133, 27),
+            8: (127, 219, 255), 9: (135, 12, 37)
         }
-        
-        # Constants for rendering
-        TILE_SIZE = 13
-        SEPARATOR_WIDTH = 3
-        LABEL_SIZE = 12  # Size for coordinate labels
-        LABEL_PADDING = 2  # Padding around labels
-        
-        # Calculate image dimensions including labels
+        PATCH_SIZE = 16  # Each ViT patch is 16x16
+        TILE_SIZE = 14   # Actual tile size (centered within patch)
+        BORDER = 1       # Border around each tile within the patch
+        LABEL_SIZE = 12
+        LABEL_PADDING = 8
         height, width = arr.shape
-        img_width = width * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH + LABEL_SIZE + LABEL_PADDING
-        img_height = height * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH + LABEL_SIZE + LABEL_PADDING
+        # Grid repeats every 16 pixels (patch size)
+        gridblock_width = width * PATCH_SIZE
+        gridblock_height = height * PATCH_SIZE
         
-        # Create RGB image
-        img = Image.new('RGB', (img_width, img_height), (255, 255, 255))  # White background
+        # Calculate required size including labels
+        block_width = LABEL_SIZE + LABEL_PADDING + gridblock_width
+        block_height = LABEL_SIZE + LABEL_PADDING + gridblock_height
+        min_required = max(block_width, block_height)
+        
+        # Choose appropriate image size
+        if min_required <= 144:
+            final_size = 144
+        elif min_required <= 256:
+            final_size = 256
+        else:  # Up to 30x30
+            final_size = 512
+        img = Image.new('RGB', (final_size, final_size), (255, 255, 255))
         pixels = img.load()
-        
+        # Center the grid+labels block, but ensure it fits
+        block_x = max(0, (final_size - block_width) // 2)
+        block_y = max(0, (final_size - block_height) // 2)
         # Draw tiles
         for y in range(height):
             for x in range(width):
                 color = colors.get(arr[y, x], (0, 0, 0))
-                
-                # Calculate tile position (offset by label size)
-                tile_x = x * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH + LABEL_SIZE + LABEL_PADDING
-                tile_y = y * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH + LABEL_SIZE + LABEL_PADDING
-                
-                # Fill tile
+                # Calculate patch position (each patch is 16x16)
+                patch_x = block_x + LABEL_SIZE + LABEL_PADDING + x * PATCH_SIZE
+                patch_y = block_y + LABEL_SIZE + LABEL_PADDING + y * PATCH_SIZE
+                # Center the 14x14 tile within the 16x16 patch
+                tile_x = patch_x + BORDER
+                tile_y = patch_y + BORDER
                 for ty in range(TILE_SIZE):
                     for tx in range(TILE_SIZE):
                         pixels[tile_x + tx, tile_y + ty] = color
-        
-        # Draw coordinate labels
         draw = ImageDraw.Draw(img)
+        # try:
+        #     font = ImageFont.truetype("arial.ttf", 10)
+        # except:
+        #     try:
+        #         font = ImageFont.load_default()
+        #     except:
+        #         font = None
         
-        # Try to load a font, fall back to default if not available
-        try:
-            font = ImageFont.truetype("arial.ttf", 10)
-        except:
-            font = ImageFont.load_default()
-        
-        # Draw x-coordinate labels (top)
+        # Draw x labels (top)
         for x in range(width):
-            label_x = x * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH + LABEL_SIZE + LABEL_PADDING + TILE_SIZE//2
-            label_y = LABEL_PADDING*2
-            draw.text((label_x, label_y), str(x), fill=(0, 0, 0), font=font, anchor="mm")
+            # Center label over the patch
+            if x > 9:
+                label_x = block_x + LABEL_SIZE + LABEL_PADDING + x * PATCH_SIZE + PATCH_SIZE // 2 - 6
+            else:
+                label_x = block_x + LABEL_SIZE + LABEL_PADDING + x * PATCH_SIZE + PATCH_SIZE // 2 - 2
+            label_y = block_y + LABEL_PADDING // 2 + 2
+            text = str(x)
+            draw.text((label_x, label_y), text, fill=(0, 0, 0))
         
-        # Draw y-coordinate labels (left)
+        # Draw y labels (left)
         for y in range(height):
-            label_x = LABEL_PADDING*3
-            label_y = y * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH + LABEL_SIZE + LABEL_PADDING + TILE_SIZE//2
-            draw.text((label_x, label_y), str(y), fill=(0, 0, 0), font=font, anchor="mm")
-        
-        # Convert to base64
+            if y > 9:
+                label_x = block_x + LABEL_PADDING // 2
+            else:
+                label_x = block_x + LABEL_PADDING // 2 + 4
+            # Center label next to the patch
+            label_y = block_y + LABEL_SIZE + LABEL_PADDING + y * PATCH_SIZE + PATCH_SIZE // 2 - 5
+            text = str(y)
+            draw.text((label_x, label_y), text, fill=(0, 0, 0))
         buffered = BytesIO()
         img.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode()

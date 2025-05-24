@@ -1,69 +1,12 @@
 import streamlit as st
 import numpy as np
-from PIL import Image
-import io
-import base64
 from grid_ops import GridOperations
-
 from solver import ARCSolver
 
 A = ARCSolver(api_key="")
 
-def grid_to_image(grid):
-    """Convert a grid to a base64-encoded PNG image.
-    Each tile is 8x8 pixels with 1px white separators."""
-    # Convert grid to numpy array
-    arr = np.array(grid, dtype=np.uint8)
-    
-    # Create a color mapping matching ARC's official colors
-    colors = {
-        0: (0, 0, 0),           # Black
-        1: (0, 116, 217),       # Blue (#0074D9)
-        2: (255, 65, 54),       # Red (#FF4136)
-        3: (46, 204, 64),       # Green (#2ECC40)
-        4: (255, 220, 0),       # Yellow (#FFDC00)
-        5: (170, 170, 170),     # Grey (#AAAAAA)
-        6: (240, 18, 190),      # Fuschia (#F012BE)
-        7: (255, 133, 27),      # Orange (#FF851B)
-        8: (127, 219, 255),     # Teal (#7FDBFF)
-        9: (135, 12, 37)        # Brown (#870C25)
-    }
-    
-    # Constants for rendering
-    TILE_SIZE = 8
-    SEPARATOR_WIDTH = 1
-    
-    # Calculate image dimensions
-    height, width = arr.shape
-    img_width = width * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH
-    img_height = height * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH
-    
-    # Create RGB image
-    img = Image.new('RGB', (img_width, img_height), (255, 255, 255))  # White background
-    pixels = img.load()
-    
-    # Draw tiles
-    for y in range(height):
-        for x in range(width):
-            color = colors.get(arr[y, x], (0, 0, 0))
-            
-            # Calculate tile position
-            tile_x = x * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH
-            tile_y = y * (TILE_SIZE + SEPARATOR_WIDTH) + SEPARATOR_WIDTH
-            
-            # Fill tile
-            for ty in range(TILE_SIZE):
-                for tx in range(TILE_SIZE):
-                    pixels[tile_x + tx, tile_y + ty] = color
-    
-    # Convert to base64
-    buffered = io.BytesIO()
-    img.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode()
-
 def display_grid(grid):
     """Display a grid as an image in Streamlit"""
-    #img_data = grid_to_image(grid)
     img_data = A._grid_to_image(grid)
     st.image(f"data:image/png;base64,{img_data}")
 

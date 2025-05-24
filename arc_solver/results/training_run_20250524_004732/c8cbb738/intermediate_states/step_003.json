@@ -1,0 +1,71 @@
+{
+  "step": 3,
+  "grid": [
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ]
+  ],
+  "tool": "fill_rectangle",
+  "description": "After 1 operations",
+  "rationale": "Fill entire resized grid with background color (8) before plotting the cluster patterns."
+}
