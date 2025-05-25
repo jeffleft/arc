@@ -170,7 +170,10 @@ def main():
     for task_file in os.listdir(training_dir):
         if not task_file.endswith(".json"):
             continue
-            
+        
+        if task_count < 1:
+            task_count += 1
+            continue
         if task_count >= 2:
             break
             

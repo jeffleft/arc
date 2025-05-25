@@ -1,2 +1,4 @@
 arc_solver/.env
 arc_solver/__pycache__
+.DS_Store
+arc_solver/.DS_Store

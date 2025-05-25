@@ -1,0 +1,71 @@
+{
+  "step": 2,
+  "grid": [
+    [
+      3,
+      8,
+      2,
+      1,
+      2,
+      8,
+      3
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      6,
+      8,
+      8,
+      8,
+      8,
+      8,
+      6
+    ],
+    [
+      1,
+      8,
+      8,
+      8,
+      8,
+      8,
+      1
+    ],
+    [
+      6,
+      8,
+      8,
+      8,
+      8,
+      8,
+      6
+    ],
+    [
+      8,
+      8,
+      8,
+      1,
+      8,
+      8,
+      8
+    ],
+    [
+      3,
+      8,
+      2,
+      1,
+      2,
+      8,
+      3
+    ]
+  ],
+  "tool": "fill_tiles",
+  "description": "After 1 operations",
+  "rationale": "Populate the superposed shapes: rectangle shape3 at corners, rectangle shape2 at middle edges, diamond shape1 at cardinal points, rectangle shape6 at top/bottom mid columns."
+}

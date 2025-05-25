@@ -187,7 +187,8 @@ class ARCSolver:
                                         "x": {"type": "integer"},
                                         "y": {"type": "integer"},
                                         "color": {"type": "integer"}
-                                    }
+                                    },
+                                    "required": ["x", "y", "color"]
                                 }
                             },
                             "rationale": {

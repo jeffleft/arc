@@ -1,0 +1,71 @@
+{
+  "step": 6,
+  "grid": [
+    [
+      3,
+      8,
+      2,
+      1,
+      2,
+      8,
+      3
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      1,
+      8,
+      8,
+      8,
+      8,
+      8,
+      1
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    [
+      3,
+      8,
+      2,
+      1,
+      2,
+      8,
+      3
+    ]
+  ],
+  "tool": "fill_tiles",
+  "description": "After 1 operations",
+  "rationale": "Overlay shape patterns on the output center: shape1 (color1) cardinal midpoints of 7x7, shape2 (color2) corners of 3x7, shape3 (color3) corners of 7x7, shape6 (color6) corners of 7x3 rectangle."
+}
