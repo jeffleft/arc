@@ -89,7 +89,7 @@ def evaluate_solution(predicted: List[List[int]], expected: List[List[int]], con
     
     # Get LLM commentary
     response = solver.client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-4.1-mini",
         messages=[
             {
                 "role": "system",
@@ -150,20 +150,28 @@ def main():
         
     # Create results directory with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_dir = os.path.join("results", f"training_run_{timestamp}")
+    results_dir = os.path.join("results", f"eval_run_{timestamp}")
     os.makedirs(results_dir, exist_ok=True)
     
     # Initialize components
     solver = ARCSolver(api_key, results_dir)
     prompt_evolution = PromptEvolution(api_key)
     
+    # Initialize token usage tracking
+    total_token_usage = {
+        "tasks": [],
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "total_tokens": 0
+    }
+    
     # Save initial prompt
     with open(os.path.join(results_dir, "initial_prompt.txt"), "w") as f:
         f.write(prompt_evolution._get_initial_prompt())
     
     # Load tasks
-    data_dir = "../data"
-    training_dir = os.path.join(data_dir, "training")
+    data_dir = "../data/v2"
+    training_dir = os.path.join(data_dir, "evaluation")
     
     # Process each task (limited to 5)
     task_count = 0
@@ -171,17 +179,18 @@ def main():
         if not task_file.endswith(".json"):
             continue
         
-        if task_count < 1:
+        if task_count < 0:
             task_count += 1
             continue
-        if task_count >= 2:
+        if task_count >= 10:
             break
             
         task_path = os.path.join(training_dir, task_file)
         task = load_task(task_path)
         
         # Get current prompt
-        current_prompt = prompt_evolution.evolve_prompt()
+        #current_prompt = prompt_evolution.evolve_prompt()
+        current_prompt = ""
         
         # Get the single test case
         test_case = task["test"][0]
@@ -196,14 +205,22 @@ def main():
             task_file.replace(".json", "")
         )
 
-        # Retrieve plan
-        plan = [x for x in solver.get_message_history() if x.get("role") == "assistant"][0]["content"]
-        
-        # Evaluate the solution
-        score, commentary = evaluate_solution(predicted_output, expected_output, confidence, plan, solver)
+        # If solve_task returned None, mark as incorrect
+        if predicted_output is None:
+            print(f"Task {task_file} failed - marking as incorrect")
+            predicted_output = input_grid  # Use input grid as fallback
+            confidence = 0
+            score = 0
+            commentary = "Task failed due to error in solving process"
+        else:
+            # Retrieve plan
+            plan = [x for x in solver.get_message_history() if x.get("role") == "assistant"][0]["content"]
+            
+            # Evaluate the solution
+            score, commentary = evaluate_solution(predicted_output, expected_output, confidence, plan, solver)
         
         # Update prompt evolution with score and commentary
-        prompt_evolution.add_prompt(current_prompt, score, commentary)
+        #prompt_evolution.add_prompt(current_prompt, score, commentary)
         
         # Prepare task results
         task_results = {
@@ -222,8 +239,19 @@ def main():
             },
             "message_history": solver.get_message_history(),
             "intermediate_states": solver.get_intermediate_grids(),
-            "solver": solver  # Pass solver instance for image generation
+            "solver": solver,  # Pass solver instance for image generation
+            "token_usage": solver.get_token_counts()  # Add token usage to results
         }
+        
+        # Update total token usage
+        token_counts = solver.get_token_counts()
+        total_token_usage["tasks"].append({
+            "task_name": task_file,
+            "token_usage": token_counts
+        })
+        total_token_usage["total_input_tokens"] += token_counts["input_tokens"]
+        total_token_usage["total_output_tokens"] += token_counts["output_tokens"]
+        total_token_usage["total_tokens"] += token_counts["total_tokens"]
         
         # Save results
         save_results(task_file.replace(".json", ""), results_dir, task_results)
@@ -238,8 +266,18 @@ def main():
         task_count += 1
     
     # Save final prompt evolution history
-    with open(os.path.join(results_dir, "prompt_evolution_history.json"), "w") as f:
-        json.dump(prompt_evolution.prompt_history, f, indent=2)
+    # with open(os.path.join(results_dir, "prompt_evolution_history.json"), "w") as f:
+    #     json.dump(prompt_evolution.prompt_history, f, indent=2)
+        
+    # Save token usage summary
+    with open(os.path.join(results_dir, "token_usage_summary.json"), "w") as f:
+        json.dump(total_token_usage, f, indent=2)
+        
+    # Print final token usage summary
+    print("\nToken Usage Summary:")
+    print(f"Total Input Tokens: {total_token_usage['total_input_tokens']}")
+    print(f"Total Output Tokens: {total_token_usage['total_output_tokens']}")
+    print(f"Total Tokens: {total_token_usage['total_tokens']}")
 
 if __name__ == "__main__":
     main() 

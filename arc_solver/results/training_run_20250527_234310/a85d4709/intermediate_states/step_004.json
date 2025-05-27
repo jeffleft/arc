@@ -1,0 +1,22 @@
+{
+  "step": 4,
+  "grid": [
+    [
+      3,
+      3,
+      3
+    ],
+    [
+      2,
+      2,
+      2
+    ],
+    [
+      4,
+      4,
+      4
+    ]
+  ],
+  "tool": "fill_rectangle",
+  "description": "fill_rectangle"
+}

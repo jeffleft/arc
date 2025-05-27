@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 from openai import OpenAI
 from grid_ops import GridOperations
 import os
+import time
 
 class ARCSolver:
     def __init__(self, api_key: str, results_dir: str = None):
@@ -17,6 +18,8 @@ class ARCSolver:
         self.intermediate_grids = []
         self.results_dir = results_dir
         self.current_task_dir = None
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
         
     def get_message_history(self) -> List[Dict]:
         """Get the message history for the current task."""
@@ -26,201 +29,210 @@ class ARCSolver:
         """Get the sequence of intermediate grid states."""
         return self.intermediate_grids
         
+    def get_token_counts(self) -> Dict[str, int]:
+        """Get the total token counts for the current task."""
+        return {
+            "input_tokens": self.total_input_tokens,
+            "output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_input_tokens + self.total_output_tokens
+        }
+        
     def _define_tools(self) -> List[Dict]:
         """Define the available tools for grid manipulation."""
         return [
             {
                 "type": "function",
-                "function": {
-                    "name": "copy_grid",
-                    "description": "Copy the input grid to the output",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "rationale": {
-                                "type": "string",
-                                "description": "Explanation of why this operation is being performed"
-                            }
-                        },
-                        "required": ["rationale"]
-                    }
+                "name": "copy_grid",
+                "description": "Copy the input grid to the output",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of why this operation is being performed"
+                        }
+                    },
+                    "required": ["rationale"],
+                    "additionalProperties": False
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "copy_selection",
-                    "description": "Copy a selected area to one or more other places on the output grid",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "start_x": {"type": "integer"},
-                            "start_y": {"type": "integer"},
-                            "end_x": {"type": "integer"},
-                            "end_y": {"type": "integer"},
-                            "paste_origins": {
+                "name": "copy_selection",
+                "description": "Copy a selected area to one or more other places on the output grid",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "start_x": {"type": "integer"},
+                        "start_y": {"type": "integer"},
+                        "end_x": {"type": "integer"},
+                        "end_y": {"type": "integer"},
+                        "paste_origins": {
+                            "type": "array",
+                            "description": "List of positions to paste the selected area",
+                            "items": {
                                 "type": "array",
-                                "description": "List of positions to paste the selected area",
+                                "description": "(x, y) tuples",
                                 "items": {
-                                    "type": "array",
-                                    "description": "(x, y) tuples",
-                                    "items": {
-                                        "type": "integer",
-                                        "description": "Starting x or y coordinate of position"
-                                    }
+                                    "type": "integer",
+                                    "description": "Starting x or y coordinate of position"
                                 }
-                            },
-                            "rationale": {
-                                "type": "string",
-                                "description": "Explanation of why this operation is being performed"
                             }
                         },
-                        "required": ["start_x", "start_y", "end_x", "end_y", "paste_origins", "rationale"]
-                    }
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of why this operation is being performed"
+                        }
+                    },
+                    "required": ["start_x", "start_y", "end_x", "end_y", "paste_origins", "rationale"],
+                    "additionalProperties": False
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "fill_pattern",
-                    "description": "Fill tiles in a pattern with fixed interval and direction",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "start_x": {"type": "integer"},
-                            "start_y": {"type": "integer"},
-                            "direction": {"type": "string", "enum": ["horizontal", "vertical"]},
-                            "interval": {"type": "integer"},
-                            "color": {"type": "integer"},
-                            "rationale": {
-                                "type": "string",
-                                "description": "Explanation of why this operation is being performed"
-                            }
-                        },
-                        "required": ["start_x", "start_y", "direction", "interval", "color", "rationale"]
-                    }
+                "name": "fill_pattern",
+                "description": "Fill tiles in a pattern with fixed interval and direction",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "start_x": {"type": "integer"},
+                        "start_y": {"type": "integer"},
+                        "direction": {"type": "string", "enum": ["horizontal", "vertical"]},
+                        "interval": {"type": "integer"},
+                        "color": {"type": "integer"},
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of why this operation is being performed"
+                        }
+                    },
+                    "required": ["start_x", "start_y", "direction", "interval", "color", "rationale"],
+                    "additionalProperties": False
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "fill_rectangle",
-                    "description": "Fill a rectangle with a given color",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "x1": {"type": "integer"},
-                            "y1": {"type": "integer"},
-                            "x2": {"type": "integer"},
-                            "y2": {"type": "integer"},
-                            "color": {"type": "integer"},
-                            "rationale": {
-                                "type": "string",
-                                "description": "Explanation of why this operation is being performed"
-                            }
-                        },
-                        "required": ["x1", "y1", "x2", "y2", "color", "rationale"]
-                    }
+                "name": "fill_rectangle",
+                "description": "Fill a rectangle with a given color",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "x1": {"type": "integer"},
+                        "y1": {"type": "integer"},
+                        "x2": {"type": "integer"},
+                        "y2": {"type": "integer"},
+                        "color": {"type": "integer"},
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of why this operation is being performed"
+                        }
+                    },
+                    "required": ["x1", "y1", "x2", "y2", "color", "rationale"],
+                    "additionalProperties": False
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "translate",
-                    "description": "Translate the grid by a given offset",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "dx": {"type": "integer"},
-                            "dy": {"type": "integer"},
-                            "rationale": {
-                                "type": "string",
-                                "description": "Explanation of why this operation is being performed"
-                            }
-                        },
-                        "required": ["dx", "dy", "rationale"]
-                    }
+                "name": "translate",
+                "description": "Translate the grid by a given offset",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "dx": {"type": "integer"},
+                        "dy": {"type": "integer"},
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of why this operation is being performed"
+                        }
+                    },
+                    "required": ["dx", "dy", "rationale"],
+                    "additionalProperties": False
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "resize_grid",
-                    "description": "Resize the output grid to MxN dimensions",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "width": {
-                                "type": "integer",
-                                "description": "The new width of the grid",
-                                "minimum": 1,
-                                "maximum": 100
-                            },
-                            "height": {
-                                "type": "integer",
-                                "description": "The new height of the grid",
-                                "minimum": 1,
-                                "maximum": 100
-                            },
-                            "rationale": {
-                                "type": "string",
-                                "description": "Explanation of why this operation is being performed"
-                            }
+                "name": "resize_grid",
+                "description": "Resize the output grid to MxN dimensions",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "width": {
+                            "type": "integer",
+                            "description": "The new width of the grid",
+                            "minimum": 1,
+                            "maximum": 100
                         },
-                        "required": ["width", "height", "rationale"]
-                    }
+                        "height": {
+                            "type": "integer",
+                            "description": "The new height of the grid",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of why this operation is being performed"
+                        }
+                    },
+                    "required": ["width", "height", "rationale"],
+                    "additionalProperties": False
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "fill_tiles",
-                    "description": "Fill specific tiles with given colors",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "positions": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "x": {"type": "integer"},
-                                        "y": {"type": "integer"},
-                                        "color": {"type": "integer"}
-                                    },
-                                    "required": ["x", "y", "color"]
-                                }
-                            },
-                            "rationale": {
-                                "type": "string",
-                                "description": "Explanation of why this operation is being performed"
+                "name": "fill_tiles",
+                "description": "Fill specific tiles with given colors",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "positions": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "x": {"type": "integer"},
+                                    "y": {"type": "integer"},
+                                    "color": {"type": "integer"}
+                                },
+                                "required": ["x", "y", "color"],
+                                "additionalProperties": False
                             }
                         },
-                        "required": ["positions", "rationale"]
-                    }
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of why this operation is being performed"
+                        }
+                    },
+                    "required": ["positions", "rationale"],
+                    "additionalProperties": False
                 }
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "finish",
-                    "description": "Indicate that the solution is complete",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "confidence": {
-                                "type": "integer",
-                                "description": "Confidence score from 0-10 in the solution's correctness",
-                                "minimum": 0,
-                                "maximum": 10
-                            },
-                            "rationale": {
-                                "type": "string",
-                                "description": "Explanation of why the solution is complete and why the confidence score was chosen"
-                            }
+                "name": "finish",
+                "description": "Indicate that the solution is complete",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "confidence": {
+                            "type": "integer",
+                            "description": "Confidence score from 0-10 in the solution's correctness",
+                            "minimum": 0,
+                            "maximum": 10
                         },
-                        "required": ["confidence", "rationale"]
-                    }
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of why the solution is complete and why the confidence score was chosen"
+                        }
+                    },
+                    "required": ["confidence", "rationale"],
+                    "additionalProperties": False
                 }
             }
         ]
@@ -260,9 +272,11 @@ class ARCSolver:
             final_size = 512
         img = Image.new('RGB', (final_size, final_size), (255, 255, 255))
         pixels = img.load()
+
         # Center the grid+labels block, but ensure it fits
         block_x = max(0, (final_size - block_width) // 2)
         block_y = max(0, (final_size - block_height) // 2)
+
         # Draw tiles
         for y in range(height):
             for x in range(width):
@@ -277,13 +291,6 @@ class ARCSolver:
                     for tx in range(TILE_SIZE):
                         pixels[tile_x + tx, tile_y + ty] = color
         draw = ImageDraw.Draw(img)
-        # try:
-        #     font = ImageFont.truetype("arial.ttf", 10)
-        # except:
-        #     try:
-        #         font = ImageFont.load_default()
-        #     except:
-        #         font = None
         
         # Draw x labels (top)
         for x in range(width):
@@ -310,7 +317,7 @@ class ARCSolver:
         img.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode()
 
-    def _save_intermediate_state(self, step: int, grid: List[List[int]], tool: str, description: str, rationale: str):
+    def _save_intermediate_state(self, step: int, grid: List[List[int]], tool: str, description: str):
         """Save an intermediate grid state in real-time."""
         if not self.current_task_dir:
             return
@@ -324,8 +331,7 @@ class ARCSolver:
             "step": step,
             "grid": grid,
             "tool": tool,
-            "description": description,
-            "rationale": rationale
+            "description": description
         }
         
         # Save to states.json (append to existing or create new)
@@ -393,31 +399,25 @@ class ARCSolver:
             "step": 0,
             "grid": grid_ops.get_grid(),
             "tool": "initial",
-            "description": "Initial grid state",
-            "rationale": "Starting state before any transformations"
+            "description": "Initial grid state"
         }
         self.intermediate_grids.append(initial_state)
         self._save_intermediate_state(**initial_state)
         
         # Prepare the system message with tools
         system_message = {
-            "role": "system",
-            "content": [
-                {
-                    "type": "text",
-                    "text": ("You are an ARC grid-puzzle solver. You will be given task demonstrations, from which you can infer "
-                             "rules and patterns that define the task. You will then be given an input grid and tools to generate "
-                             "the solution/output grid.\n"
-                             f"{evolved_instructions}"
-                             "\n\nFirst, return your reasoning about what the underlying rules and possible solution should be. "
-                             "Next, execute the tool calls to generate the output grid (do not output the grid directly). Once each tool call returns, the user will send the "
-                             "updated representation of the output grid. Continue with the tool calls until you are confident in your "
-                             "solution, then use the finish tool with a confidence score.")
-                }
-            ]
+            "role": "developer",
+            "content": ("You are an ARC grid-puzzle solver. You will be given task demonstrations, from which you can infer "
+                         "rules and patterns that define the task. You will then be given an input grid and tools to generate "
+                         "the solution/output grid.\n"
+                         f"{evolved_instructions}"
+                         "\n\nFirst, return your reasoning about what the underlying rules and possible solution should be. "
+                         "Next, execute the tool calls to generate the output grid (you will never output the grid directly!) Once each tool call returns, the user will send the "
+                         "updated representation of the output grid. Continue with the tool calls until you are confident in your "
+                         "solution, then use the finish tool with a confidence score.")
         }
         
-        # Add system message to history
+        # Add system message to log
         self.message_history.append(system_message)
         self._save_message_history()
         
@@ -431,139 +431,201 @@ class ARCSolver:
         for i, demo in enumerate(task_json.get("train", []), 1):
             # Add input
             user_message["content"].append({
-                "type": "text",
+                "type": "input_text",
                 "text": f"Sample input {i}:\n{json.dumps(demo['input'])}"
             })
             user_message["content"].append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{self._grid_to_image(demo['input'])}"
-                }
+                "type": "input_image",
+                "image_url": f"data:image/png;base64,{self._grid_to_image(demo['input'])}"
             })
             
             # Add output
             user_message["content"].append({
-                "type": "text",
+                "type": "input_text",
                 "text": f"Sample output {i}:\n{json.dumps(demo['output'])}"
             })
             user_message["content"].append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{self._grid_to_image(demo['output'])}"
-                }
+                "type": "input_image",
+                "image_url": f"data:image/png;base64,{self._grid_to_image(demo['output'])}"
             })
         
         # Add the current input grid
         user_message["content"].append({
-            "type": "text",
+            "type": "input_text",
             "text": f"\nTask input grid:\n{json.dumps(input_grid)}"
         })
         user_message["content"].append({
-            "type": "image_url",
-            "image_url": {
-                "url": f"data:image/png;base64,{self._grid_to_image(input_grid)}"
-            }
+            "type": "input_image",
+            "image_url": f"data:image/png;base64,{self._grid_to_image(input_grid)}"
         })
         
-        # Add user message to history
+        # Add user message to log
         self.message_history.append(user_message)
         self._save_message_history()
         
-        # Initialize messages list for conversation history
+        # Initialize messages list to pass to gpt
         messages = [system_message, user_message]
         
         # Loop until finish tool is called
         step = 1
+        previous_response_id = None
         while True:
-            # Get completion from GPT-4
-            response = self.client.chat.completions.create(
-                model="o4-mini",
-                messages=messages,
-                tools=self.tools,
-                tool_choice="auto"
-            )
+            # Get completion from responses API
+            max_retries = 3
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    response = self.client.responses.create(
+                        model="o4-mini",
+                        input=messages,
+                        tools=self.tools,
+                        tool_choice="auto",
+                        reasoning={
+                            "effort": "medium",
+                            "summary": "auto"
+                        },
+                        previous_response_id=previous_response_id
+                    )
+                    
+                    # Print token counts if available
+                    if hasattr(response, 'usage'):
+                        print(f"Token usage - Input: {response.usage.input_tokens}, Output: {response.usage.output_tokens}, Total: {response.usage.total_tokens}")
+                        if hasattr(response.usage, 'input_tokens_details'):
+                            print(f"Input tokens details - Cached: {response.usage.input_tokens_details.cached_tokens}")
+                        if hasattr(response.usage, 'output_tokens_details'):
+                            print(f"Output tokens details - Reasoning: {response.usage.output_tokens_details.reasoning_tokens}")
+                        
+                        # Update total token counts
+                        self.total_input_tokens += response.usage.input_tokens
+                        self.total_output_tokens += response.usage.output_tokens
+                    
+                    break  # Success, exit retry loop
+                    
+                except Exception as e:
+                    retry_count += 1
+                    print(f"Error in API call (attempt {retry_count}/{max_retries}): {str(e)}")
+                    
+                    if retry_count == max_retries:
+                        print("Max retries reached. Skipping this task.")
+                        return None, 0  # Return None grid and 0 confidence to indicate task should be skipped
+                    
+                    # Wait before retrying (exponential backoff)
+                    time.sleep(2 ** retry_count)
             
-            # Add the response to message history
-            assistant_message = response.choices[0].message
-            self.message_history.append(assistant_message)
-            self._save_message_history()
-            messages.append(assistant_message)
+            # Store the response ID for the next iteration
+            previous_response_id = response.id
 
-            # Check if there are no tool calls
-            if not assistant_message.tool_calls:
-                print(assistant_message)
-                continue
-            
-            # Process all tool calls in the response
-            for tool_call in assistant_message.tool_calls:
-                function_name = tool_call.function.name
-                function_args = json.loads(tool_call.function.arguments)
-                rationale = function_args.pop("rationale", "No rationale provided")
-                
-                # Apply the appropriate tool operation
-                if function_name == "fill_tiles":
-                    grid_ops.fill_tiles(function_args["positions"])
-                elif function_name == "copy_grid":
-                    grid_ops.copy_grid()
-                elif function_name == "fill_pattern":
-                    grid_ops.fill_pattern(
-                        function_args["start_x"],
-                        function_args["start_y"],
-                        function_args["direction"],
-                        function_args["interval"],
-                        function_args["color"]
-                    )
-                elif function_name == "fill_rectangle":
-                    grid_ops.fill_rectangle(
-                        function_args["x1"],
-                        function_args["y1"],
-                        function_args["x2"],
-                        function_args["y2"],
-                        function_args["color"]
-                    )
-                elif function_name == "translate":
-                    grid_ops.translate(
-                        function_args["dx"],
-                        function_args["dy"]
-                    )
-                elif function_name == "resize_grid":
-                    grid_ops.resize_grid(function_args["width"], function_args["height"])
-                elif function_name == "copy_selection":
-                    grid_ops.copy_selection(
-                        function_args["start_x"],
-                        function_args["start_y"],
-                        function_args["end_x"],
-                        function_args["end_y"],
-                        function_args["paste_origins"]
-                    )
-                elif function_name == "finish":
-                    current_grid = grid_ops.get_grid()
-                    current_image = self._grid_to_image(current_grid)
-                    return current_grid, function_args["confidence"]
-                
-                # Add tool response to message history
-                tool_response = {
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": function_name,
-                    "content": json.dumps({"status": "success"})
-                }
-                self.message_history.append(tool_response)
+            # Check if reponse does not have either a tool call or reasoning, if so, skip rendering grid
+            if not any(item.type == "function_call" or item.type == "reasoning" for item in response.output):
+                print("Response does not have either a tool call or reasoning!")
+                for item in response.output:
+                    self.message_history.append(item)
                 self._save_message_history()
-                messages.append(tool_response)
+                continue
+
+            # Process all items in the response output
+            for item in response.output:
+                if item.type == "reasoning":
+                    # Add reasoning to message log
+                    summary_texts = [summary.text for summary in item.summary]
+                    if summary_texts:  # Only append if there are actual summary texts
+                        self.message_history.append({
+                            "role": "assistant",
+                            "content": "Reasoning:\n" + "\n".join(summary_texts)
+                        })
+                        self._save_message_history()
+                elif item.type == "function_call":
+                    # Add the function call to messages
+                    function_call = {
+                        "type": "function_call",
+                        "call_id": item.call_id,
+                        "name": item.name,
+                        "arguments": item.arguments
+                    }
+                    messages.append(function_call)
+
+                    # log the function call
+                    self.message_history.append(function_call)
+                    self._save_message_history()
+                    
+                    function_name = item.name
+                    function_args = json.loads(item.arguments)
+                    
+                    # Apply the appropriate tool operation
+                    if function_name == "fill_tiles":
+                        grid_ops.fill_tiles(function_args["positions"])
+                    elif function_name == "copy_grid":
+                        grid_ops.copy_grid()
+                    elif function_name == "fill_pattern":
+                        grid_ops.fill_pattern(
+                            function_args["start_x"],
+                            function_args["start_y"],
+                            function_args["direction"],
+                            function_args["interval"],
+                            function_args["color"]
+                        )
+                    elif function_name == "fill_rectangle":
+                        grid_ops.fill_rectangle(
+                            function_args["x1"],
+                            function_args["y1"],
+                            function_args["x2"],
+                            function_args["y2"],
+                            function_args["color"]
+                        )
+                    elif function_name == "translate":
+                        grid_ops.translate(
+                            function_args["dx"],
+                            function_args["dy"]
+                        )
+                    elif function_name == "resize_grid":
+                        grid_ops.resize_grid(function_args["width"], function_args["height"])
+                    elif function_name == "copy_selection":
+                        grid_ops.copy_selection(
+                            function_args["start_x"],
+                            function_args["start_y"],
+                            function_args["end_x"],
+                            function_args["end_y"],
+                            function_args["paste_origins"]
+                        )
+                    elif function_name == "finish":
+                        current_grid = grid_ops.get_grid()
+                        current_image = self._grid_to_image(current_grid)
+                        return current_grid, function_args["confidence"]
+                    
+                    # Add tool response to messages
+                    tool_response = {
+                        "type": "function_call_output",
+                        "call_id": item.call_id,
+                        "output": json.dumps({"status": "success"})
+                    }
+                    messages.append(tool_response)
+
+                    # log the tool response
+                    self.message_history.append(tool_response)
+                    self._save_message_history()
+                else:
+                    # eg. type == "message"
+                    self.message_history.append(item)
+                    self._save_message_history()
             
             # Save intermediate grid state after all tool calls
             current_grid = grid_ops.get_grid()
+            function_calls = [item for item in response.output if item.type == "function_call"]
             state = {
                 "step": step,
                 "grid": current_grid,
-                "tool": "multiple" if len(assistant_message.tool_calls) > 1 else assistant_message.tool_calls[0].function.name,
-                "description": f"After {len(assistant_message.tool_calls)} operations",
-                "rationale": rationale
+                "tool": "multiple" if len(function_calls) > 1 else function_calls[0].name if function_calls else "none",
+                "description": ", ".join([item.name for item in function_calls])
             }
             self.intermediate_grids.append(state)
             self._save_intermediate_state(**state)
             step += 1
+
+            # Remove last grid update from messages if exists
+            for m in reversed(messages):
+                if m.get("role") == "user" and m.get("content")[0].get("type") == "input_text" and m.get("content")[0].get("text").startswith("Current output grid state:"):
+                    messages.remove(m)
+                    break
             
             # Add the current grid state to the message history
             current_image = self._grid_to_image(current_grid)
@@ -571,21 +633,21 @@ class ARCSolver:
                 "role": "user",
                 "content": [
                     {
-                        "type": "text",
+                        "type": "input_text",
                         "text": f"Current output grid state:\n{json.dumps(current_grid)}"
                     },
                     {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{current_image}"
-                        }
+                        "type": "input_image",
+                        "image_url": f"data:image/png;base64,{current_image}"
                     },
                     {
-                        "type": "text",
+                        "type": "input_text",
                         "text": "Is this what you expected?"
                     }
                 ]
             }
+            messages.append(grid_update) 
+
+            # log the grid update
             self.message_history.append(grid_update)
             self._save_message_history()
-            messages.append(grid_update) 

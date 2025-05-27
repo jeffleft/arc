@@ -1,0 +1,47 @@
+{
+  "tasks": [
+    {
+      "task_name": "44f52bb0.json",
+      "token_usage": {
+        "input_tokens": 11891,
+        "output_tokens": 2073,
+        "total_tokens": 13964
+      }
+    },
+    {
+      "task_name": "23581191.json",
+      "token_usage": {
+        "input_tokens": 103199,
+        "output_tokens": 6167,
+        "total_tokens": 109366
+      }
+    },
+    {
+      "task_name": "94f9d214.json",
+      "token_usage": {
+        "input_tokens": 168308,
+        "output_tokens": 21527,
+        "total_tokens": 189835
+      }
+    },
+    {
+      "task_name": "f9012d9b.json",
+      "token_usage": {
+        "input_tokens": 208259,
+        "output_tokens": 37853,
+        "total_tokens": 246112
+      }
+    },
+    {
+      "task_name": "4258a5f9.json",
+      "token_usage": {
+        "input_tokens": 231229,
+        "output_tokens": 42429,
+        "total_tokens": 273658
+      }
+    }
+  ],
+  "total_input_tokens": 722886,
+  "total_output_tokens": 110049,
+  "total_tokens": 832935
+}
