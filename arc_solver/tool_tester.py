@@ -2,6 +2,8 @@ import streamlit as st
 import numpy as np
 from grid_ops import GridOperations
 from solver import ARCSolver
+import os
+import json
 
 A = ARCSolver(api_key="")
 
@@ -9,6 +11,15 @@ def display_grid(grid):
     """Display a grid as an image in Streamlit"""
     img_data = A._grid_to_image(grid)
     st.image(f"data:image/png;base64,{img_data}")
+
+def load_grid_from_file(file_path):
+    """Load a grid from a JSON file."""
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+        if isinstance(data, dict) and 'test' in data and len(data['test']) > 0:
+            return data['test'][0]['input']
+        else:
+            raise ValueError("File must contain a test example")
 
 def main():
     st.title("ARC Grid Tool Tester")
@@ -18,8 +29,28 @@ def main():
         initial_grid = np.zeros((10, 10), dtype=np.uint8)  # Default 10x10 grid
         st.session_state.grid_ops = GridOperations(initial_grid)
     
-    # Sidebar for grid size
+    # Sidebar for grid settings
     st.sidebar.header("Grid Settings")
+    
+    # File selection
+    st.sidebar.subheader("Load Grid from File")
+    data_dir = os.path.join("..", "data", "v2", "evaluation")
+    if os.path.exists(data_dir):
+        files = [f for f in os.listdir(data_dir) if f.endswith('.json')]
+        selected_file = st.sidebar.selectbox("Select a file", ["None"] + files)
+        
+        if selected_file != "None":
+            file_path = os.path.join(data_dir, selected_file)
+            if st.sidebar.button("Load Grid"):
+                try:
+                    grid = load_grid_from_file(file_path)
+                    st.session_state.grid_ops = GridOperations(grid)
+                    st.sidebar.success(f"Loaded grid from {selected_file}")
+                except Exception as e:
+                    st.sidebar.error(f"Error loading file: {str(e)}")
+    
+    # Grid size controls
+    st.sidebar.subheader("Grid Size")
     grid_size = st.sidebar.slider("Grid Size", 5, 30, 10)
     
     if st.sidebar.button("Reset Grid"):
@@ -30,7 +61,7 @@ def main():
     st.header("Select Tool")
     tool = st.selectbox(
         "Choose a tool to use",
-        ["fill_tiles", "fill_pattern", "fill_rectangle", "translate", "resize_grid", "copy_selection"]
+        ["fill_tiles", "fill_pattern", "fill_rectangle", "translate", "resize_grid", "copy_selection", "execute_python"]
     )
     
     # Tool-specific parameters
@@ -103,6 +134,33 @@ def main():
                 st.session_state.grid_ops.copy_selection(start_x, start_y, end_x, end_y, paste_origins)
             except Exception as e:
                 st.error(f"Error: {str(e)}")
+    
+    elif tool == "execute_python":
+        st.subheader("Execute Python Code")
+        st.markdown("""
+        Write Python code to modify the grid. You have access to:
+        - `self.grid`: numpy array of the current grid
+        - `self.height`: height of the grid
+        - `self.width`: width of the grid
+        - `numpy as np`: for array operations
+        
+        Example:
+        ```python
+        # Fill a checkerboard pattern
+        for y in range(self.height):
+            for x in range(self.width):
+                if (x + y) % 2 == 0:
+                    self.grid[y, x] = 1
+                else:
+                    self.grid[y, x] = 0
+        ```
+        """)
+        code = st.text_area("Python Code", height=200)
+        if st.button("Execute Code"):
+            try:
+                st.session_state.grid_ops.execute_python_code(code)
+            except Exception as e:
+                st.error(f"Error executing code: {str(e)}")
     
     # Display current grid
     st.header("Current Grid")

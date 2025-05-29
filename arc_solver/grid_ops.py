@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union
 import numpy as np
 
 class GridOperations:
@@ -138,4 +138,34 @@ class GridOperations:
 
     def get_grid(self) -> List[List[int]]:
         """Get the current grid state."""
-        return self.grid.tolist() 
+        if isinstance(self.grid, np.ndarray):
+            return self.grid.tolist()
+        return self.grid
+
+    def execute_python_code(self, code: str) -> Dict[str, Union[bool, str]]:
+        """Execute Python code in a sandbox environment to modify the grid.
+        
+        Args:
+            code: Python code to execute. The code has access to:
+                - self.grid: numpy array of the current grid
+                - self.height: height of the grid
+                - self.width: width of the grid
+                - numpy as np: for array operations
+                
+        Returns:
+            Dict containing:
+                - success: bool indicating if execution was successful
+                - message: str containing either the result or error message
+        """
+        # Create a restricted environment with only allowed globals
+        allowed_globals = {
+            'np': np,
+            'self': self
+        }
+        
+        # Execute the code in the restricted environment
+        try:
+            exec(code, allowed_globals)
+            return {"success": True, "message": "Code executed successfully"}
+        except Exception as e:
+            return {"success": False, "message": f"Error executing Python code: {str(e)}"} 

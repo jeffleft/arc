@@ -1,0 +1,15 @@
+{
+  "tasks": [
+    {
+      "task_name": "da515329.json",
+      "token_usage": {
+        "input_tokens": 119856,
+        "output_tokens": 26041,
+        "total_tokens": 145897
+      }
+    }
+  ],
+  "total_input_tokens": 119856,
+  "total_output_tokens": 26041,
+  "total_tokens": 145897
+}

@@ -22,8 +22,8 @@ def get_training_runs():
 def get_task_samples(task_dir):
     """Get the training samples for a task from the original task data file"""
     task_name = task_dir.name
-    #task_file = Path("../data/training") / f"{task_name}.json"
-    task_file = Path("../data/v2/evaluation") / f"{task_name}.json"
+    task_file = Path("../data/training") / f"{task_name}.json"
+    #task_file = Path("../data/v2/evaluation") / f"{task_name}.json"
     
     if not task_file.exists():
         return []
@@ -209,8 +209,8 @@ def main():
         df['total_tokens'] = df['total_tokens'].astype(int)
         
         # Calculate costs
-        INPUT_COST_PER_TOKEN = 1.100 / 1_000_000  # $1.100 per 1M tokens
-        OUTPUT_COST_PER_TOKEN = 4.400 / 1_000_000  # $4.400 per 1M tokens
+        INPUT_COST_PER_TOKEN = 1.10 / 1_000_000  # $1.10 per 1M tokens
+        OUTPUT_COST_PER_TOKEN = 4.40 / 1_000_000  # $4.40 per 1M tokens
         
         input_cost = df['input_tokens'].sum() * INPUT_COST_PER_TOKEN
         output_cost = df['output_tokens'].sum() * OUTPUT_COST_PER_TOKEN
@@ -333,7 +333,18 @@ def main():
                         args = json.loads(msg['arguments'])
                         st.write("Tool Call ID:", msg.get('call_id'))
                         st.write("Rationale:", args.get('rationale', ''))
-                        st.write("Arguments:", json.dumps(args, indent=2))
+                        
+                        # Pretty print code if present in arguments
+                        if 'code' in args:
+                            st.write("Arguments:")
+                            st.code(args['code'], language='python')
+                            # Remove code from args for display
+                            display_args = args.copy()
+                            del display_args['code']
+                            if display_args:
+                                st.write("Additional arguments:", json.dumps(display_args, indent=2))
+                        else:
+                            st.write("Arguments:", json.dumps(args, indent=2))
                     except json.JSONDecodeError:
                         st.write("Raw arguments:", msg['arguments'])
                     

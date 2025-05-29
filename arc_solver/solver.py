@@ -1,7 +1,7 @@
 import json
 import base64
 from io import BytesIO
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from openai import OpenAI
@@ -234,6 +234,36 @@ class ARCSolver:
                     "required": ["confidence", "rationale"],
                     "additionalProperties": False
                 }
+            },
+            {
+                "type": "function",
+                "name": "execute_python",
+                "description": "Execute Python code to modify the grid. The code has access to the grid as a numpy array (self.grid), grid dimensions (self.height, self.width), and numpy (np). Example:" + \
+"""
+# Fill a checkerboard pattern
+for y in range(self.height):
+    for x in range(self.width):
+        if (x + y) % 2 == 0:
+            self.grid[y, x] = 1
+        else:
+            self.grid[y, x] = 0
+""",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string",
+                            "description": "Python code to execute. The code should modify self.grid directly."
+                        },
+                        "rationale": {
+                            "type": "string",
+                            "description": "Explanation of what the Python code does and why it's being used"
+                        }
+                    },
+                    "required": ["code", "rationale"],
+                    "additionalProperties": False
+                }
             }
         ]
 
@@ -254,13 +284,10 @@ class ARCSolver:
         LABEL_SIZE = 12
         LABEL_PADDING = 8
         height, width = arr.shape
-        # Grid repeats every 16 pixels (patch size)
-        gridblock_width = width * PATCH_SIZE
-        gridblock_height = height * PATCH_SIZE
-        
+
         # Calculate required size including labels
-        block_width = LABEL_SIZE + LABEL_PADDING + gridblock_width
-        block_height = LABEL_SIZE + LABEL_PADDING + gridblock_height
+        block_width = LABEL_SIZE + LABEL_PADDING + width * PATCH_SIZE
+        block_height = LABEL_SIZE + LABEL_PADDING + height * PATCH_SIZE
         min_required = max(block_width, block_height)
         
         # Choose appropriate image size
@@ -268,12 +295,24 @@ class ARCSolver:
             final_size = 144
         elif min_required <= 256:
             final_size = 256
-        else:  # Up to 30x30
+        else:  # For larger grids, scale down
             final_size = 512
+            # Calculate scaling factor to fit the grid
+            scale = min(512 / block_width, 512 / block_height)
+            # Scale down the grid
+            new_height = int(height * scale)
+            new_width = int(width * scale)
+            # Use nearest neighbor interpolation to preserve colors
+            arr = np.array(Image.fromarray(arr).resize((new_width, new_height), Image.NEAREST))
+            height, width = arr.shape
+            # Recalculate block dimensions
+            block_width = LABEL_SIZE + LABEL_PADDING + width * PATCH_SIZE
+            block_height = LABEL_SIZE + LABEL_PADDING + height * PATCH_SIZE
+
         img = Image.new('RGB', (final_size, final_size), (255, 255, 255))
         pixels = img.load()
 
-        # Center the grid+labels block, but ensure it fits
+        # Center the grid+labels block
         block_x = max(0, (final_size - block_width) // 2)
         block_y = max(0, (final_size - block_height) // 2)
 
@@ -289,7 +328,9 @@ class ARCSolver:
                 tile_y = patch_y + BORDER
                 for ty in range(TILE_SIZE):
                     for tx in range(TILE_SIZE):
-                        pixels[tile_x + tx, tile_y + ty] = color
+                        if tile_x + tx < final_size and tile_y + ty < final_size:
+                            pixels[tile_x + tx, tile_y + ty] = color
+
         draw = ImageDraw.Draw(img)
         
         # Draw x labels (top)
@@ -313,6 +354,7 @@ class ARCSolver:
             label_y = block_y + LABEL_SIZE + LABEL_PADDING + y * PATCH_SIZE + PATCH_SIZE // 2 - 5
             text = str(y)
             draw.text((label_x, label_y), text, fill=(0, 0, 0))
+
         buffered = BytesIO()
         img.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode()
@@ -432,7 +474,7 @@ class ARCSolver:
             # Add input
             user_message["content"].append({
                 "type": "input_text",
-                "text": f"Sample input {i}:\n{json.dumps(demo['input'])}"
+                "text": f"Training input {i}:\n{json.dumps(demo['input'])}"
             })
             user_message["content"].append({
                 "type": "input_image",
@@ -442,7 +484,7 @@ class ARCSolver:
             # Add output
             user_message["content"].append({
                 "type": "input_text",
-                "text": f"Sample output {i}:\n{json.dumps(demo['output'])}"
+                "text": f"Training output {i}:\n{json.dumps(demo['output'])}"
             })
             user_message["content"].append({
                 "type": "input_image",
@@ -587,6 +629,19 @@ class ARCSolver:
                             function_args["end_y"],
                             function_args["paste_origins"]
                         )
+                    elif function_name == "execute_python":
+                        result = grid_ops.execute_python_code(function_args["code"])
+                        if not result["success"]:
+                            # If there was an error, add it to messages and continue
+                            tool_response = {
+                                "type": "function_call_output",
+                                "call_id": item.call_id,
+                                "output": result["message"]
+                            }
+                            messages.append(tool_response)
+                            self.message_history.append(tool_response)
+                            self._save_message_history()
+                            continue
                     elif function_name == "finish":
                         current_grid = grid_ops.get_grid()
                         current_image = self._grid_to_image(current_grid)

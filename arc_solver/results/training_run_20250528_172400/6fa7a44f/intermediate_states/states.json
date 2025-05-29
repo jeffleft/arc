@@ -1,0 +1,194 @@
+[
+  {
+    "step": 0,
+    "grid": [
+      [
+        2,
+        9,
+        2
+      ],
+      [
+        8,
+        5,
+        2
+      ],
+      [
+        2,
+        2,
+        8
+      ]
+    ],
+    "tool": "initial",
+    "description": "Initial grid state"
+  },
+  {
+    "step": 1,
+    "grid": [
+      [
+        2,
+        9,
+        2
+      ],
+      [
+        8,
+        5,
+        2
+      ],
+      [
+        2,
+        2,
+        8
+      ]
+    ],
+    "tool": "copy_grid",
+    "description": "copy_grid"
+  },
+  {
+    "step": 2,
+    "grid": [
+      [
+        2,
+        9,
+        2
+      ],
+      [
+        8,
+        5,
+        2
+      ],
+      [
+        2,
+        2,
+        8
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ]
+    ],
+    "tool": "resize_grid",
+    "description": "resize_grid"
+  },
+  {
+    "step": 3,
+    "grid": [
+      [
+        2,
+        9,
+        2
+      ],
+      [
+        8,
+        5,
+        2
+      ],
+      [
+        2,
+        2,
+        8
+      ],
+      [
+        2,
+        2,
+        8
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ]
+    ],
+    "tool": "copy_selection",
+    "description": "copy_selection"
+  },
+  {
+    "step": 4,
+    "grid": [
+      [
+        2,
+        9,
+        2
+      ],
+      [
+        8,
+        5,
+        2
+      ],
+      [
+        2,
+        2,
+        8
+      ],
+      [
+        2,
+        2,
+        8
+      ],
+      [
+        8,
+        5,
+        2
+      ],
+      [
+        0,
+        0,
+        0
+      ]
+    ],
+    "tool": "copy_selection",
+    "description": "copy_selection"
+  },
+  {
+    "step": 5,
+    "grid": [
+      [
+        2,
+        9,
+        2
+      ],
+      [
+        8,
+        5,
+        2
+      ],
+      [
+        2,
+        2,
+        8
+      ],
+      [
+        2,
+        2,
+        8
+      ],
+      [
+        8,
+        5,
+        2
+      ],
+      [
+        2,
+        9,
+        2
+      ]
+    ],
+    "tool": "copy_selection",
+    "description": "copy_selection"
+  }
+]

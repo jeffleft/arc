@@ -1,0 +1,22 @@
+{
+  "step": 1,
+  "grid": [
+    [
+      2,
+      9,
+      2
+    ],
+    [
+      8,
+      5,
+      2
+    ],
+    [
+      2,
+      2,
+      8
+    ]
+  ],
+  "tool": "copy_grid",
+  "description": "copy_grid"
+}

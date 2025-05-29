@@ -1,0 +1,87 @@
+{
+  "tasks": [
+    {
+      "task_name": "da515329.json",
+      "token_usage": {
+        "input_tokens": 562014,
+        "output_tokens": 38135,
+        "total_tokens": 600149
+      }
+    },
+    {
+      "task_name": "e12f9a14.json",
+      "token_usage": {
+        "input_tokens": 844222,
+        "output_tokens": 58028,
+        "total_tokens": 902250
+      }
+    },
+    {
+      "task_name": "88e364bc.json",
+      "token_usage": {
+        "input_tokens": 1041923,
+        "output_tokens": 90974,
+        "total_tokens": 1132897
+      }
+    },
+    {
+      "task_name": "a251c730.json",
+      "token_usage": {
+        "input_tokens": 1285418,
+        "output_tokens": 103638,
+        "total_tokens": 1389056
+      }
+    },
+    {
+      "task_name": "9385bd28.json",
+      "token_usage": {
+        "input_tokens": 1560028,
+        "output_tokens": 122056,
+        "total_tokens": 1682084
+      }
+    },
+    {
+      "task_name": "409aa875.json",
+      "token_usage": {
+        "input_tokens": 2180570,
+        "output_tokens": 163362,
+        "total_tokens": 2343932
+      }
+    },
+    {
+      "task_name": "abc82100.json",
+      "token_usage": {
+        "input_tokens": 2605868,
+        "output_tokens": 185453,
+        "total_tokens": 2791321
+      }
+    },
+    {
+      "task_name": "a6f40cea.json",
+      "token_usage": {
+        "input_tokens": 2756594,
+        "output_tokens": 200555,
+        "total_tokens": 2957149
+      }
+    },
+    {
+      "task_name": "d59b0160.json",
+      "token_usage": {
+        "input_tokens": 3933582,
+        "output_tokens": 297763,
+        "total_tokens": 4231345
+      }
+    },
+    {
+      "task_name": "62593bfd.json",
+      "token_usage": {
+        "input_tokens": 4285403,
+        "output_tokens": 332354,
+        "total_tokens": 4617757
+      }
+    }
+  ],
+  "total_input_tokens": 21055622,
+  "total_output_tokens": 1592318,
+  "total_tokens": 22647940
+}

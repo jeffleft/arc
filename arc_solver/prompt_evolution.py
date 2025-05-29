@@ -31,7 +31,7 @@ Based on this analysis, suggest a new prompt that:
 1. Addresses the weaknesses identified in previous attempts
 2. Builds on successful strategies
 3. Provides clearer guidance for pattern recognition
-4. Helps the model better understand the task requirements.
+4. Helps the model better understand the task requirements
 
 Output just the new prompt!"""
                 }
@@ -50,46 +50,35 @@ Output just the new prompt!"""
         
     def _get_initial_prompt(self) -> str:
         """Generate the initial prompt."""
-        return """You are an expert ARC puzzle solver. Your task is to deduce and implement the **core structural transformation rule** relating inputs to outputs in ARC tasks. Use the following methodology to ensure an accurate, globally consistent solution:
+        return """### 1. **Cell-by-Cell Grounded Comparison**
+- For **each training input/output pair**:
+    - Inspect the grids **cell by cell**, not just by object or region.
+    - For every grid location, record **what changes, what stays the same, and where each feature appears** - including color, label, connections, and background.
+    - Note the **exact coordinates and arrangement** of every pattern, shape, line, path, or region.
 
----
+### 2. **Explicit, Example-Based Rule Construction**
+- **Before you use the tools, write a clear, stepwise rule** defining (in natural language):
+    - **How to identify every relevant feature** (by color, shape, adjacency, position, connectivity, etc.).
+    - **Exactly how each feature transforms or evolves**: Are elements preserved, moved, relabeled, copied, expanded,reflected, repeated, reordered, removed?
+    - State explicitly **which positions are absolute (fixed coordinates)** and **which are relative (moved/shaped based on other features)**.
+    - **Do not generalize, shift, align, or compress** unless every single training pair supports that operation.
 
-**1. Comprehensive Structural Analysis**
-- For each training pair, examine the **full input and output grids** side by side.
-- Focus on relationships at the level of **objects, shapes, lines, enclosures, boundaries, and connectivity** - not just individual cell changes.
-- Ask:
-  - Are regions expanded, contracted, outlined, filled, or otherwise modified as wholes?
-  - Are boundaries or interiors treated differently?
-  - Are there extensions, connections, or symmetry in line segments or shapes?
+### 3. **Cross-Example Rule Testing and Output Verification**
+- **Apply your prospective rule** to every training pair; dry run in your head
+    - **Double-check that every output cell exactly matches the example** in value, position, and shape.
+    - If any difference (even a single cell) is found, **revise your rule to eliminate this discrepancy**.
+    - Confirm that your logic never introduces, omits, shifts, or merges features in a way not shown in the outputs.
 
-**2. Hypothesis Formation (Global Rule Synthesis)**
-- After reviewing examples, explicitly **formulate a stepwise natural-language rule** for transforming input to output, referencing structural, topological, or geometric properties, not just color or position.
-- Specify:
-  - What constitutes an \"object\" (e.g., connected shape, enclosure).
-  - Which components are modified (e.g., boundaries, interiors, extended lines).
-  - How relationships (enclosure, adjacency, symmetry) affect transformations.
-- Confirm that your rule accounts for *all training examples* - pay close attention to edge cases and exceptions.
+### 4. **Implementation - Faithful Output Construction**
+- **Implement your stepwise rules exactly as written.**
+- Produce output grids that **perfectly match the expected samples in content, size, structure, and position**.
+- **Before finalizing**, always compare your output grid directly to the sample - cell by cell - to guarantee a perfect match.
 
-**3. Algorithmic Implementation**
-- Devise your solution using **global and object-level operations**:
-  - Favor algorithms such as connected-component labeling, boundary tracing, global flood-fill, or path construction. `copy_selection` can be very useful!
-  - Avoid any transformation that simply matches colors, upscales pixels, or applies local heuristics unless the examples conclusively require it.
-  - If necessary, decompose each output into steps matching your structural rule (e.g., first trace outlines, then fill interiors).
-
-**4. Alignment and Validation**
-- After generating your output, **verify for each test case**:
-  - The grid dimensions match the expected output.
-  - The structural features (object placement, shape, connectivity, boundaries, fills) align exactly.
-  - There are no off-by-one errors or unintentional shifts.
-- **If a discrepancy is detected, revisit your rule and adjust as needed** to fit all examples consistently.
-
-**5. Explanation and Justification**
-- For every transformation, **briefly justify** why your rule matches the observed input-output pairs, describing the evidence for your structural interpretation.
-
----
-
-**Core Principle:**  
-Always prioritize **global, object-based, and structural reasoning** over simple pixelwise transformations. Treat the puzzle as a mapping of relationships between shapes, regions, and boundaries - ensuring your solution captures the intended pattern logic demonstrated across all examples."""
+**Self-Check Before Submission:**  
+For each aspect of your solution, ask:  
+- "Does this recreate exactly **what** changes and **where** - with no extra shifting, cropping, or alignment - just as shown in every training output, with no plausible alternatives?"  
+If not, **return, reanalyze, and revise before proceeding.**
+"""
         
     def _format_history(self) -> str:
         """Format prompt history for analysis."""
