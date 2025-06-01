@@ -1,0 +1,167 @@
+{
+  "tasks": [
+    {
+      "task_name": "891232d6.json",
+      "token_usage": {
+        "input_tokens": 883613,
+        "output_tokens": 155584,
+        "total_tokens": 1039197
+      }
+    },
+    {
+      "task_name": "292dd178.json",
+      "token_usage": {
+        "input_tokens": 936851,
+        "output_tokens": 228249,
+        "total_tokens": 1165100
+      }
+    },
+    {
+      "task_name": "67b4a34d.json",
+      "token_usage": {
+        "input_tokens": 950127,
+        "output_tokens": 242861,
+        "total_tokens": 1192988
+      }
+    },
+    {
+      "task_name": "94be5b80.json",
+      "token_usage": {
+        "input_tokens": 1102489,
+        "output_tokens": 324431,
+        "total_tokens": 1426920
+      }
+    },
+    {
+      "task_name": "df8cc377.json",
+      "token_usage": {
+        "input_tokens": 1130318,
+        "output_tokens": 356415,
+        "total_tokens": 1486733
+      }
+    },
+    {
+      "task_name": "ce8d95cc.json",
+      "token_usage": {
+        "input_tokens": 1139545,
+        "output_tokens": 378521,
+        "total_tokens": 1518066
+      }
+    },
+    {
+      "task_name": "72a961c9.json",
+      "token_usage": {
+        "input_tokens": 1154657,
+        "output_tokens": 393834,
+        "total_tokens": 1548491
+      }
+    },
+    {
+      "task_name": "6f473927.json",
+      "token_usage": {
+        "input_tokens": 1169980,
+        "output_tokens": 417890,
+        "total_tokens": 1587870
+      }
+    },
+    {
+      "task_name": "18419cfa.json",
+      "token_usage": {
+        "input_tokens": 2024643,
+        "output_tokens": 536960,
+        "total_tokens": 2561603
+      }
+    },
+    {
+      "task_name": "45bbe264.json",
+      "token_usage": {
+        "input_tokens": 2032128,
+        "output_tokens": 540793,
+        "total_tokens": 2572921
+      }
+    },
+    {
+      "task_name": "7c8af763.json",
+      "token_usage": {
+        "input_tokens": 2036322,
+        "output_tokens": 559313,
+        "total_tokens": 2595635
+      }
+    },
+    {
+      "task_name": "f8be4b64.json",
+      "token_usage": {
+        "input_tokens": 2050341,
+        "output_tokens": 589411,
+        "total_tokens": 2639752
+      }
+    },
+    {
+      "task_name": "e7dd8335.json",
+      "token_usage": {
+        "input_tokens": 2053808,
+        "output_tokens": 594495,
+        "total_tokens": 2648303
+      }
+    },
+    {
+      "task_name": "103eff5b.json",
+      "token_usage": {
+        "input_tokens": 2062022,
+        "output_tokens": 611694,
+        "total_tokens": 2673716
+      }
+    },
+    {
+      "task_name": "a57f2f04.json",
+      "token_usage": {
+        "input_tokens": 2075270,
+        "output_tokens": 615331,
+        "total_tokens": 2690601
+      }
+    },
+    {
+      "task_name": "52fd389e.json",
+      "token_usage": {
+        "input_tokens": 2093447,
+        "output_tokens": 618594,
+        "total_tokens": 2712041
+      }
+    },
+    {
+      "task_name": "7d1f7ee8.json",
+      "token_usage": {
+        "input_tokens": 2109005,
+        "output_tokens": 624434,
+        "total_tokens": 2733439
+      }
+    },
+    {
+      "task_name": "95a58926.json",
+      "token_usage": {
+        "input_tokens": 2121839,
+        "output_tokens": 633752,
+        "total_tokens": 2755591
+      }
+    },
+    {
+      "task_name": "8dae5dfc.json",
+      "token_usage": {
+        "input_tokens": 2135729,
+        "output_tokens": 641427,
+        "total_tokens": 2777156
+      }
+    },
+    {
+      "task_name": "2753e76c.json",
+      "token_usage": {
+        "input_tokens": 2142146,
+        "output_tokens": 665243,
+        "total_tokens": 2807389
+      }
+    }
+  ],
+  "total_input_tokens": 33404280,
+  "total_output_tokens": 9729232,
+  "total_tokens": 43133512
+}

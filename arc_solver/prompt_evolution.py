@@ -19,7 +19,7 @@ class PromptEvolution:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an expert at crafting prompts for solving ARC puzzles. Your task is to analyze the performance of previous prompts and suggest improvements."
+                    "content": "You are an expert at crafting prompts for solving ARC puzzles. Your task is to analyze the performance of previous prompts and output a new prompt that improves on the previous ones."
                 },
                 {
                     "role": "user",
@@ -50,34 +50,26 @@ Output just the new prompt!"""
         
     def _get_initial_prompt(self) -> str:
         """Generate the initial prompt."""
-        return """### 1. **Cell-by-Cell Grounded Comparison**
-- For **each training input/output pair**:
-    - Inspect the grids **cell by cell**, not just by object or region.
-    - For every grid location, record **what changes, what stays the same, and where each feature appears** - including color, label, connections, and background.
-    - Note the **exact coordinates and arrangement** of every pattern, shape, line, path, or region.
+        return """1. Map differences
+   Compare each training output to its input cell-by-cell. Record every changed cell with coordinates, old and new values, neighbour context, and note unchanged areas. Map which visible regions alter, which remain, and where boundaries hold. Make no inferences—only observe.
 
-### 2. **Explicit, Example-Based Rule Construction**
-- **Before you use the tools, write a clear, stepwise rule** defining (in natural language):
-    - **How to identify every relevant feature** (by color, shape, adjacency, position, connectivity, etc.).
-    - **Exactly how each feature transforms or evolves**: Are elements preserved, moved, relabeled, copied, expanded,reflected, repeated, reordered, removed?
-    - State explicitly **which positions are absolute (fixed coordinates)** and **which are relative (moved/shaped based on other features)**.
-    - **Do not generalize, shift, align, or compress** unless every single training pair supports that operation.
+2. Derive rules solely from observed changes
+   Build rules that explain every changed cell and nothing else. Precisely state how each target is recognised (colour, local pattern, location, structure) and where a rule must stop; never act on regions not shown unequivocally in all examples. Before accepting a rule, ask if it ever edits a wrong cell or misses a required one; if so, narrow or split it. Boundaries such as connectors are hard walls whenever they block change even once.
 
-### 3. **Cross-Example Rule Testing and Output Verification**
-- **Apply your prospective rule** to every training pair; dry run in your head
-    - **Double-check that every output cell exactly matches the example** in value, position, and shape.
-    - If any difference (even a single cell) is found, **revise your rule to eliminate this discrepancy**.
-    - Confirm that your logic never introduces, omits, shifts, or merges features in a way not shown in the outputs.
+3. Validate through full simulation
+   Apply each rule to every training pair. Reject or tighten if it adds, omits, merges, leaks, or crosses a forbidden boundary even once. Prefer multiple narrow rules over one broad compressive rule.
 
-### 4. **Implementation - Faithful Output Construction**
-- **Implement your stepwise rules exactly as written.**
-- Produce output grids that **perfectly match the expected samples in content, size, structure, and position**.
-- **Before finalizing**, always compare your output grid directly to the sample - cell by cell - to guarantee a perfect match.
+4. Implement conservatively
+   Code only fully validated rules; do not generalise, smooth, or fill unless every example demands it. When uncertain, edit less (underfit) rather than risk over-reach. Re-check that each rule respects its stopping conditions.
 
-**Self-Check Before Submission:**  
-For each aspect of your solution, ask:  
-- "Does this recreate exactly **what** changes and **where** - with no extra shifting, cropping, or alignment - just as shown in every training output, with no plausible alternatives?"  
-If not, **return, reanalyze, and revise before proceeding.**
+5. Final consistency check
+   Compare generated outputs to provided ones cell-by-cell and edge-to-edge. Any mismatch, however small, sends you back to refine rules; never patch outputs. Justify every alteration with explicit evidence common to all examples.
+
+Core principles
+Let outputs, not intuition, dictate rules. Treat any connector or thin boundary that blocks change in one example as an absolute barrier. Every rule must answer: “Does this cover all and only the required changes across every training case?”
+
+Goal
+Reproduce every training output exactly—contents, boundaries, and preserved features—via difference-driven mapping, minimal exceptionless rules, strict boundary adherence, and exhaustive validation.
 """
         
     def _format_history(self) -> str:

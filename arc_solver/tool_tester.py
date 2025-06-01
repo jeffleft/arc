@@ -34,9 +34,9 @@ def main():
     
     # File selection
     st.sidebar.subheader("Load Grid from File")
-    data_dir = os.path.join("..", "data", "v2", "evaluation")
+    data_dir = os.path.join("..", "data", "evaluation")
     if os.path.exists(data_dir):
-        files = [f for f in os.listdir(data_dir) if f.endswith('.json')]
+        files = sorted([f for f in os.listdir(data_dir) if f.endswith('.json')])
         selected_file = st.sidebar.selectbox("Select a file", ["None"] + files)
         
         if selected_file != "None":

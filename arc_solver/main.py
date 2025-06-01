@@ -90,10 +90,11 @@ def evaluate_solution(predicted: List[List[int]], expected: List[List[int]], con
     # Get LLM commentary
     response = solver.client.chat.completions.create(
         model="gpt-4.1",
+        # max_tokens=512,
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert at analyzing ARC puzzle solutions. Your task is to explain why a solution is correct or incorrect, focusing on the underlying rules inferred."
+                "content": "You are an expert at analyzing ARC puzzle solutions. Your task is to explain why a solution is correct or incorrect, focusing on the underlying rules inferred. No need to directly output any grids; just be descriptive. Keep it concise without missing any details. Skip the formatting/markdown."
             },
             {
                 "role": "user",
@@ -119,7 +120,9 @@ Please explain why the solution is {'correct' if is_correct else 'incorrect'}. F
 1. The patterns and transformations that should have been applied
 2. Where the solution {'matches' if is_correct else 'deviates from'} the expected pattern
 3. Any insights about the underlying rule or concept
-4. How the model went wrong/right with its plan"""
+4. How the model went wrong/right with its plan
+
+Finally, also output a numeric score between 0 and 10 for the model's approach."""
                     },
                     {
                         "type": "image_url",
@@ -150,7 +153,7 @@ def main():
         
     # Create results directory with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_dir = os.path.join("results", f"training_run_{timestamp}")
+    results_dir = os.path.join("results", f"eval_run_{timestamp}")
     os.makedirs(results_dir, exist_ok=True)
     
     # Initialize components
@@ -170,8 +173,8 @@ def main():
         f.write(prompt_evolution._get_initial_prompt())
     
     # Load tasks
-    data_dir = "../data"
-    training_dir = os.path.join(data_dir, "training")
+    data_dir = "../data/v2"
+    training_dir = os.path.join(data_dir, "evaluation")
     
     # Process each task (limited to 5)
     task_count = 0
@@ -179,18 +182,18 @@ def main():
         if not task_file.endswith(".json"):
             continue
         
-        if task_count < 100:
+        if task_count < 50:
             task_count += 1
             continue
-        if task_count >= 120:
+        if task_count >= 55:
             break
             
         task_path = os.path.join(training_dir, task_file)
         task = load_task(task_path)
         
         # Get current prompt
-        current_prompt = prompt_evolution.evolve_prompt()
-        #current_prompt = "You are an expert ARC puzzle solver. Your task is to deduce and clearly articulate the **actual transformation rule** that connects each input to its output in ARC tasks, and to implement a correct, generalizable solution. To do this effectively, follow this improved method:\n\n---\n\n**1. Stepwise, Example-Guided Comparison**\n\n- For each training input-output pair, start by **describing in plain language exactly what changes** (if any) occur from input to output. Ask:\n    - Is the output an exact copy of the input, or is there a transformation?\n    - Are changes applied by row, column, object, region, whole-grid, or another structure?\n    - What remains the same and what differs? If nothing changes, state that clearly.\n\n**2. Hypothesis Formation \u2014 Simplicity First**\n\n- **Always check for the simplest explanation first** (identity/copy, row/column fill, or whole-region assignment) before considering complex object-based logic.\n- For any hypothesized pattern, always ask:\n    - Does this rule describe *every* provided example?\n    - Are there exceptions or counterexamples?\n\n**3. Rule Verification \u2014 Against All Examples**\n\n- Systematically apply your potential rule to each training pair, confirming it holds in *every* case.\n- If your rule only fits one example but not others, revise it.\n- Explicitly note if the pattern is ambiguous between rows, columns, objects, or global properties \u2014 and resolve by reviewing multiple examples.\n\n**4. Precise Rule Statement**\n\n- Articulate your final rule as simply and specifically as possible, for example:\n    > \"Each output row is filled uniformly with a color based on that row\u2019s index.\"\n    > \"Copy the input grid to the output exactly.\"\n    > \"Draw a colored border around the entire grid.\"\n- Specify *which grid feature(s)* (row, column, border, interior, connected region) determine each output cell's value.\n\n**5. Implementation Planning**\n\n- Translate your rule into clear, stepwise instructions. Use higher-level operations (like connected components or region filling) *only if evidence from examples requires it.*\n- Avoid overcomplicating reasoning\u2014**do not invent objects, patterns, or transformations not directly supported by all examples.**\n\n**6. Output Verification**\n\n- For any test case, confirm:\n    - Output matches expected shape and structural features.\n    - No off-by-one, orientation, axis, or uniformity errors.\n    - All elements match your stated rule, with no unexplained discrepancies.\n\n**7. Short, Clear Justification**\n\n- Briefly explain *why* your rule matches the inputs and outputs, referencing concrete details from all provided examples.\n\n---\n\n**Core Principle:**  \nPrioritize the most straightforward, example-based pattern explanation first. Only introduce complexity (object logic, region analysis) if clearly necessary. At every step, ensure your reasoning matches what the data shows\u2014not what you expect or assume.\n\nBefore coding, always explicitly state:  \n> \u201cFor each [row/column/object/region], assign value X, as observed by [specific evidence] in the examples.\u201d\n\nProceed to implement only once this rule is supported, unambiguous, and validated for all provided cases."
+        # current_prompt = prompt_evolution.evolve_prompt()
+        current_prompt = prompt_evolution._get_initial_prompt()
         
         # Get the single test case
         test_case = task["test"][0]
@@ -214,13 +217,16 @@ def main():
             commentary = "Task failed due to error in solving process"
         else:
             # Retrieve plan
-            plan = [x for x in solver.get_message_history() if x.get("role") == "assistant"][0]["content"]
+            try:
+                plan = [x for x in solver.get_message_history() if x.get("role") == "assistant"][0]["content"]
+            except IndexError:
+                plan = ""
             
             # Evaluate the solution
             score, commentary = evaluate_solution(predicted_output, expected_output, confidence, plan, solver)
         
         # Update prompt evolution with score and commentary
-        prompt_evolution.add_prompt(current_prompt, score, commentary)
+        # prompt_evolution.add_prompt(current_prompt, score, commentary)
         
         # Prepare task results
         task_results = {
@@ -266,8 +272,8 @@ def main():
         task_count += 1
     
     # Save final prompt evolution history
-    with open(os.path.join(results_dir, "prompt_evolution_history.json"), "w") as f:
-        json.dump(prompt_evolution.prompt_history, f, indent=2)
+    # with open(os.path.join(results_dir, "prompt_evolution_history.json"), "w") as f:
+    #     json.dump(prompt_evolution.prompt_history, f, indent=2)
         
     # Save token usage summary
     with open(os.path.join(results_dir, "token_usage_summary.json"), "w") as f:

@@ -20,6 +20,7 @@ class ARCSolver:
         self.current_task_dir = None
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        self.budget = 2000000
         
     def get_message_history(self) -> List[Dict]:
         """Get the message history for the current task."""
@@ -271,7 +272,8 @@ for y in range(self.height):
         """Convert a grid to a base64-encoded PNG image.
         Each tile is 16x16 pixels (matching ViT patches) with 1px white separators.
         Includes coordinate labels on the top and left sides.
-        Image is padded to standard sizes: 144x144 for grids <=8x8, 256x256 for grids <=15x15, 512x512 otherwise."""
+        Image is padded to standard sizes: 144x144 for grids <=8x8, 256x256 for grids <=15x15, 512x512 otherwise.
+        For grids larger than 512x512, the image will be truncated to show the top-left portion."""
         arr = np.array(grid, dtype=np.uint8)
         colors = {
             0: (0, 0, 0), 1: (0, 116, 217), 2: (255, 65, 54), 3: (46, 204, 64),
@@ -295,30 +297,28 @@ for y in range(self.height):
             final_size = 144
         elif min_required <= 256:
             final_size = 256
-        else:  # For larger grids, scale down
+        else:
             final_size = 512
-            # Calculate scaling factor to fit the grid
-            scale = min(512 / block_width, 512 / block_height)
-            # Scale down the grid
-            new_height = int(height * scale)
-            new_width = int(width * scale)
-            # Use nearest neighbor interpolation to preserve colors
-            arr = np.array(Image.fromarray(arr).resize((new_width, new_height), Image.NEAREST))
-            height, width = arr.shape
-            # Recalculate block dimensions
-            block_width = LABEL_SIZE + LABEL_PADDING + width * PATCH_SIZE
-            block_height = LABEL_SIZE + LABEL_PADDING + height * PATCH_SIZE
 
+        # Create image with standard size
         img = Image.new('RGB', (final_size, final_size), (255, 255, 255))
         pixels = img.load()
+
+        # Calculate how many tiles we can fit
+        max_tiles_x = (final_size - LABEL_SIZE - LABEL_PADDING) // PATCH_SIZE
+        max_tiles_y = (final_size - LABEL_SIZE - LABEL_PADDING) // PATCH_SIZE
+        
+        # Truncate grid dimensions if needed
+        draw_width = min(width, max_tiles_x)
+        draw_height = min(height, max_tiles_y)
 
         # Center the grid+labels block
         block_x = max(0, (final_size - block_width) // 2)
         block_y = max(0, (final_size - block_height) // 2)
 
         # Draw tiles
-        for y in range(height):
-            for x in range(width):
+        for y in range(draw_height):
+            for x in range(draw_width):
                 color = colors.get(arr[y, x], (0, 0, 0))
                 # Calculate patch position (each patch is 16x16)
                 patch_x = block_x + LABEL_SIZE + LABEL_PADDING + x * PATCH_SIZE
@@ -334,7 +334,7 @@ for y in range(self.height):
         draw = ImageDraw.Draw(img)
         
         # Draw x labels (top)
-        for x in range(width):
+        for x in range(draw_width):
             # Center label over the patch
             if x > 9:
                 label_x = block_x + LABEL_SIZE + LABEL_PADDING + x * PATCH_SIZE + PATCH_SIZE // 2 - 6
@@ -345,7 +345,7 @@ for y in range(self.height):
             draw.text((label_x, label_y), text, fill=(0, 0, 0))
         
         # Draw y labels (left)
-        for y in range(height):
+        for y in range(draw_height):
             if y > 9:
                 label_x = block_x + LABEL_PADDING // 2
             else:
@@ -427,6 +427,10 @@ for y in range(self.height):
         # Reset message history and intermediate grids for new task
         self.message_history = []
         self.intermediate_grids = []
+
+        # reset token counts
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
         
         # Set up task directory
         if self.results_dir:
@@ -454,9 +458,10 @@ for y in range(self.height):
                          "the solution/output grid.\n"
                          f"{evolved_instructions}"
                          "\n\nFirst, return your reasoning about what the underlying rules and possible solution should be. "
-                         "Next, execute the tool calls to generate the output grid (you will never output the grid directly!) Once each tool call returns, the user will send the "
-                         "updated representation of the output grid. Continue with the tool calls until you are confident in your "
-                         "solution, then use the finish tool with a confidence score.")
+                         "Next, execute the tool calls to generate the output grid (never output the grid directly.) "
+                         "Once each tool call returns, the user will send the updated representation of the output grid. "
+                         "Continue with the tool calls until you are confident in your solution, then use the finish tool "
+                         "with a confidence score. Never send a message without a tool call!")
         }
         
         # Add system message to log
@@ -510,7 +515,7 @@ for y in range(self.height):
         
         # Loop until finish tool is called
         step = 1
-        previous_response_id = None
+        # previous_response_id = None
         while True:
             # Get completion from responses API
             max_retries = 3
@@ -526,7 +531,9 @@ for y in range(self.height):
                             "effort": "medium",
                             "summary": "auto"
                         },
-                        previous_response_id=previous_response_id
+                        truncation="auto",
+                        # store=False,
+                        # include=["reasoning.encrypted_content"]
                     )
                     
                     # Print token counts if available
@@ -553,22 +560,21 @@ for y in range(self.height):
                     
                     # Wait before retrying (exponential backoff)
                     time.sleep(2 ** retry_count)
-            
-            # Store the response ID for the next iteration
-            previous_response_id = response.id
 
-            # Check if reponse does not have either a tool call or reasoning, if so, skip rendering grid
-            if not any(item.type == "function_call" or item.type == "reasoning" for item in response.output):
-                print("Response does not have either a tool call or reasoning!")
-                for item in response.output:
-                    self.message_history.append(item)
-                self._save_message_history()
-                continue
+            # add context
+            messages += response.output
 
             # Process all items in the response output
             for item in response.output:
-                if item.type == "reasoning":
-                    # Add reasoning to message log
+                if item.type == "reasoning":                    
+                    # # Add reasoning to context
+                    # messages.append({
+                    #     "type": "reasoning",
+                    #     "id": item.id,
+                    #     "summary": [{"text": s.text, "type": s.type} for s in item.summary] if item.summary else []
+                    # })
+
+                    # Add reasoning to log
                     summary_texts = [summary.text for summary in item.summary]
                     if summary_texts:  # Only append if there are actual summary texts
                         self.message_history.append({
@@ -577,14 +583,15 @@ for y in range(self.height):
                         })
                         self._save_message_history()
                 elif item.type == "function_call":
-                    # Add the function call to messages
                     function_call = {
                         "type": "function_call",
                         "call_id": item.call_id,
                         "name": item.name,
                         "arguments": item.arguments
                     }
-                    messages.append(function_call)
+
+                    # # Add to context
+                    # messages.append(function_call)
 
                     # log the function call
                     self.message_history.append(function_call)
@@ -662,6 +669,11 @@ for y in range(self.height):
                     # eg. type == "message"
                     self.message_history.append(item)
                     self._save_message_history()
+
+            # Check if reponse does not have a tool call, if so, skip rendering grid
+            if not any(item.type == "function_call" for item in response.output):
+                print("Response does not have a tool call!")
+                continue
             
             # Save intermediate grid state after all tool calls
             current_grid = grid_ops.get_grid()
@@ -676,11 +688,14 @@ for y in range(self.height):
             self._save_intermediate_state(**state)
             step += 1
 
-            # Remove last grid update from messages if exists
-            for m in reversed(messages):
-                if m.get("role") == "user" and m.get("content")[0].get("type") == "input_text" and m.get("content")[0].get("text").startswith("Current output grid state:"):
-                    messages.remove(m)
-                    break
+            for i, m in enumerate(messages):
+                if isinstance(m, dict) and m.get("role") == "user" and m.get("content")[0].get("type") == "input_text" and m.get("content")[0].get("text").startswith("Current output grid state:"):
+                    messages[i] = {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": "Current output grid state: [removed for brevity]"}
+                        ]
+                    }
             
             # Add the current grid state to the message history
             current_image = self._grid_to_image(current_grid)
@@ -697,7 +712,7 @@ for y in range(self.height):
                     },
                     {
                         "type": "input_text",
-                        "text": "Is this what you expected?"
+                        "text": "Is this what you expected? (don't reply, just think about it as you solve the task)"
                     }
                 ]
             }
@@ -706,3 +721,8 @@ for y in range(self.height):
             # log the grid update
             self.message_history.append(grid_update)
             self._save_message_history()
+
+            # check solving budget
+            if self.total_input_tokens > self.budget:
+                print("Solving budget exceeded. Outputting current grid.")
+                return grid_ops.get_grid(), 0

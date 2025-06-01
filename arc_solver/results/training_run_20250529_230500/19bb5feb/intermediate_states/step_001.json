@@ -1,0 +1,15 @@
+{
+  "step": 1,
+  "grid": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      0
+    ]
+  ],
+  "tool": "resize_grid",
+  "description": "resize_grid"
+}

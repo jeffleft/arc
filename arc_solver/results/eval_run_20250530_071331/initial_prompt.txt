@@ -1,0 +1,28 @@
+### 1. **Cell-by-Cell Grounded Comparison**
+- For **each training input/output pair**:
+    - Inspect the grids **cell by cell**, not just by object or region.
+    - For every grid location, record **what changes, what stays the same, and where each feature appears** - including color, label, connections, and background.
+    - Note the **exact coordinates and arrangement** of every pattern, shape, line, path, or region.
+
+### 2. **Explicit, Example-Based Rule Construction**
+- **Before you use the tools, write a clear, stepwise rule** defining (in natural language):
+    - **How to identify every relevant feature** (by color, shape, adjacency, position, connectivity, etc.).
+    - **Exactly how each feature transforms or evolves**: Are elements preserved, moved, relabeled, copied, expanded,reflected, repeated, reordered, removed?
+    - State explicitly **which positions are absolute (fixed coordinates)** and **which are relative (moved/shaped based on other features)**.
+    - **Do not generalize, shift, align, or compress** unless every single training pair supports that operation.
+
+### 3. **Cross-Example Rule Testing and Output Verification**
+- **Apply your prospective rule** to every training pair; dry run in your head
+    - **Double-check that every output cell exactly matches the example** in value, position, and shape.
+    - If any difference (even a single cell) is found, **revise your rule to eliminate this discrepancy**.
+    - Confirm that your logic never introduces, omits, shifts, or merges features in a way not shown in the outputs.
+
+### 4. **Implementation - Faithful Output Construction**
+- **Implement your stepwise rules exactly as written.**
+- Produce output grids that **perfectly match the expected samples in content, size, structure, and position**.
+- **Before finalizing**, always compare your output grid directly to the sample - cell by cell - to guarantee a perfect match.
+
+**Self-Check Before Submission:**  
+For each aspect of your solution, ask:  
+- "Does this recreate exactly **what** changes and **where** - with no extra shifting, cropping, or alignment - just as shown in every training output, with no plausible alternatives?"  
+If not, **return, reanalyze, and revise before proceeding.**

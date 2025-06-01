@@ -2,9 +2,10 @@ from typing import List, Dict, Tuple, Union
 import numpy as np
 
 class GridOperations:
-    def __init__(self, grid: List[List[int]]):
+    def __init__(self, input_grid: List[List[int]]):
         """Initialize with a grid."""
-        self.grid = np.array(grid)
+        self.grid = np.array(input_grid)  # initialize working grid with input grid
+        self.input_grid = np.array(input_grid)  # store input grid
         self.height, self.width = self.grid.shape
         
     def fill_tiles(self, positions: List[Dict[str, int]]) -> None:
@@ -15,8 +16,8 @@ class GridOperations:
                 self.grid[y, x] = pos["color"]
                 
     def copy_grid(self) -> None:
-        """Copy the input grid to the output (no-op as we're already working on the output)."""
-        pass
+        """Copy the input grid to the output"""
+        self.grid = self.input_grid.copy()
         
     def fill_pattern(self, start_x: int, start_y: int, direction: str, interval: int, color: int) -> None:
         """Fill tiles in a pattern with fixed interval and direction."""
@@ -138,9 +139,7 @@ class GridOperations:
 
     def get_grid(self) -> List[List[int]]:
         """Get the current grid state."""
-        if isinstance(self.grid, np.ndarray):
-            return self.grid.tolist()
-        return self.grid
+        return self.grid.tolist()
 
     def execute_python_code(self, code: str) -> Dict[str, Union[bool, str]]:
         """Execute Python code in a sandbox environment to modify the grid.

@@ -22,7 +22,7 @@ def get_training_runs():
 def get_task_samples(task_dir):
     """Get the training samples for a task from the original task data file"""
     task_name = task_dir.name
-    task_file = Path("../data/training") / f"{task_name}.json"
+    task_file = Path("../data/evaluation") / f"{task_name}.json"
     #task_file = Path("../data/v2/evaluation") / f"{task_name}.json"
     
     if not task_file.exists():
