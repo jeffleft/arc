@@ -1,0 +1,218 @@
+[
+    {
+        "type": "function",
+        "name": "copy_grid",
+        "description": "Copy the input grid to the output",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of why this operation is being performed"
+                }
+            },
+            "required": ["rationale"],
+            "additionalProperties": false
+        }
+    },
+    {
+        "type": "function",
+        "name": "copy_selection",
+        "description": "Copy a selected area to one or more other places on the output grid",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "start_x": {"type": "integer"},
+                "start_y": {"type": "integer"},
+                "end_x": {"type": "integer"},
+                "end_y": {"type": "integer"},
+                "paste_origins": {
+                    "type": "array",
+                    "description": "List of positions to paste the selected area",
+                    "items": {
+                        "type": "array",
+                        "description": "(x, y) tuples",
+                        "items": {
+                            "type": "integer",
+                            "description": "Starting x or y coordinate of position"
+                        }
+                    }
+                },
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of why this operation is being performed"
+                }
+            },
+            "required": ["start_x", "start_y", "end_x", "end_y", "paste_origins", "rationale"],
+            "additionalProperties": false
+        }
+    },
+    {
+        "type": "function",
+        "name": "fill_pattern",
+        "description": "Fill tiles in a pattern with fixed interval and direction",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "start_x": {"type": "integer"},
+                "start_y": {"type": "integer"},
+                "direction": {"type": "string", "enum": ["horizontal", "vertical"]},
+                "interval": {"type": "integer"},
+                "color": {"type": "integer"},
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of why this operation is being performed"
+                }
+            },
+            "required": ["start_x", "start_y", "direction", "interval", "color", "rationale"],
+            "additionalProperties": false
+        }
+    },
+    {
+        "type": "function",
+        "name": "fill_rectangle",
+        "description": "Fill a rectangle with a given color",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "x1": {"type": "integer"},
+                "y1": {"type": "integer"},
+                "x2": {"type": "integer"},
+                "y2": {"type": "integer"},
+                "color": {"type": "integer"},
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of why this operation is being performed"
+                }
+            },
+            "required": ["x1", "y1", "x2", "y2", "color", "rationale"],
+            "additionalProperties": false
+        }
+    },
+    {
+        "type": "function",
+        "name": "translate",
+        "description": "Translate the grid by a given offset",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "dx": {"type": "integer"},
+                "dy": {"type": "integer"},
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of why this operation is being performed"
+                }
+            },
+            "required": ["dx", "dy", "rationale"],
+            "additionalProperties": false
+        }
+    },
+    {
+        "type": "function",
+        "name": "resize_grid",
+        "description": "Resize the output grid to MxN dimensions",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "width": {
+                    "type": "integer",
+                    "description": "The new width of the grid",
+                    "minimum": 1,
+                    "maximum": 100
+                },
+                "height": {
+                    "type": "integer",
+                    "description": "The new height of the grid",
+                    "minimum": 1,
+                    "maximum": 100
+                },
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of why this operation is being performed"
+                }
+            },
+            "required": ["width", "height", "rationale"],
+            "additionalProperties": false
+        }
+    },
+    {
+        "type": "function",
+        "name": "fill_tiles",
+        "description": "Fill specific tiles with given colors",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "positions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "x": {"type": "integer"},
+                            "y": {"type": "integer"},
+                            "color": {"type": "integer"}
+                        },
+                        "required": ["x", "y", "color"],
+                        "additionalProperties": false
+                    }
+                },
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of why this operation is being performed"
+                }
+            },
+            "required": ["positions", "rationale"],
+            "additionalProperties": false
+        }
+    },
+    {
+        "type": "function",
+        "name": "finish",
+        "description": "Indicate that the solution is complete",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "integer",
+                    "description": "Confidence score from 0-10 in the solution's correctness",
+                    "minimum": 0,
+                    "maximum": 10
+                },
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of why the solution is complete and why the confidence score was chosen"
+                }
+            },
+            "required": ["confidence", "rationale"],
+            "additionalProperties": false
+        }
+    },
+    {
+        "type": "function",
+        "name": "execute_python",
+        "description": "Execute Python code to modify the grid. The code has access to the grid as a numpy array (self.grid), grid dimensions (self.height, self.width), and numpy (np). Example:\n# Fill a checkerboard pattern\nfor y in range(self.height):\n    for x in range(self.width):\n        if (x + y) % 2 == 0:\n            self.grid[y, x] = 1\n        else:\n            self.grid[y, x] = 0\n",
+        "strict": true,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "Python code to execute. The code should modify self.grid directly."
+                },
+                "rationale": {
+                    "type": "string",
+                    "description": "Explanation of what the Python code does and why it's being used"
+                }
+            },
+            "required": ["code", "rationale"],
+            "additionalProperties": false
+        }
+    }
+]

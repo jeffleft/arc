@@ -1,6 +1,8 @@
 from typing import List, Dict, Optional
 import json
 from openai import OpenAI
+import os
+from datetime import datetime
 
 class PromptEvolution:
     def __init__(self, api_key: str):
@@ -38,7 +40,24 @@ Output just the new prompt!"""
             ]
         )
         
-        return response.choices[0].message.content
+        new_prompt = response.choices[0].message.content
+
+        # Save the evolved prompt to a timestamped file
+        try:
+            evolved_prompts_dir = os.path.join(os.path.dirname(__file__), "prompts", "evolved")
+            os.makedirs(evolved_prompts_dir, exist_ok=True) # exist_ok=True ensures it doesn't error if dir exists
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"prompt_{timestamp}.txt"
+            filepath = os.path.join(evolved_prompts_dir, filename)
+
+            with open(filepath, "w") as f:
+                f.write(new_prompt)
+            # print(f"Saved evolved prompt to {filepath}") # Optional: for debugging
+        except Exception as e:
+            print(f"Error saving evolved prompt: {e}") # Log error but don't crash
+
+        return new_prompt
         
     def add_prompt(self, prompt: str, score: int, commentary: str):
         """Add a prompt and its performance to history."""
@@ -49,28 +68,18 @@ Output just the new prompt!"""
         })
         
     def _get_initial_prompt(self) -> str:
-        """Generate the initial prompt."""
-        return """1. Map differences
-   Compare each training output to its input cell-by-cell. Record every changed cell with coordinates, old and new values, neighbour context, and note unchanged areas. Map which visible regions alter, which remain, and where boundaries hold. Make no inferences—only observe.
-
-2. Derive rules solely from observed changes
-   Build rules that explain every changed cell and nothing else. Precisely state how each target is recognised (colour, local pattern, location, structure) and where a rule must stop; never act on regions not shown unequivocally in all examples. Before accepting a rule, ask if it ever edits a wrong cell or misses a required one; if so, narrow or split it. Boundaries such as connectors are hard walls whenever they block change even once.
-
-3. Validate through full simulation
-   Apply each rule to every training pair. Reject or tighten if it adds, omits, merges, leaks, or crosses a forbidden boundary even once. Prefer multiple narrow rules over one broad compressive rule.
-
-4. Implement conservatively
-   Code only fully validated rules; do not generalise, smooth, or fill unless every example demands it. When uncertain, edit less (underfit) rather than risk over-reach. Re-check that each rule respects its stopping conditions.
-
-5. Final consistency check
-   Compare generated outputs to provided ones cell-by-cell and edge-to-edge. Any mismatch, however small, sends you back to refine rules; never patch outputs. Justify every alteration with explicit evidence common to all examples.
-
-Core principles
-Let outputs, not intuition, dictate rules. Treat any connector or thin boundary that blocks change in one example as an absolute barrier. Every rule must answer: “Does this cover all and only the required changes across every training case?”
-
-Goal
-Reproduce every training output exactly—contents, boundaries, and preserved features—via difference-driven mapping, minimal exceptionless rules, strict boundary adherence, and exhaustive validation.
-"""
+        """Load the initial prompt from a file."""
+        prompt_file_path = os.path.join(os.path.dirname(__file__), "prompts", "initial_prompt.txt")
+        try:
+            with open(prompt_file_path, 'r') as f:
+                return f.read()
+        except FileNotFoundError:
+            print(f"Error: Initial prompt file not found at {prompt_file_path}")
+            # Return a fallback prompt or raise an error
+            return "Fallback initial prompt: Describe the transformations needed to get from input to output."
+        except Exception as e:
+            print(f"Error reading initial prompt file {prompt_file_path}: {e}")
+            return "Fallback initial prompt due to error: Describe transformations."
         
     def _format_history(self) -> str:
         """Format prompt history for analysis."""

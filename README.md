@@ -66,3 +66,83 @@ When your output grid is ready, click the green "Submit!" button to check your a
 After you've obtained the correct answer for the current test input grid, you can switch to the next test input grid for the task using the "Next test input" button (if there is any available; most tasks only have one test input).
 
 When you're done with a task, use the "load task" button to open a new task.
+
+---
+
+## ARC AI Solver Implementation
+
+This section details the AI-powered solver developed to tackle ARC tasks programmatically. The solver is located in the `arc_solver` directory.
+
+### Overview
+
+The `arc_solver` is an AI agent that uses OpenAI's models to understand ARC task patterns and apply a predefined set of grid manipulation tools to generate solutions. It processes tasks, logs its reasoning and actions, and saves the results.
+
+### Running the Solver
+
+The main script for the solver is `arc_solver/main.py`.
+
+#### Prerequisites
+- Python 3.x
+- Required Python packages: `openai`, `numpy`, `Pillow`, `python-dotenv`. You can install them using the provided `requirements.txt`:
+  ```bash
+  pip install -r requirements.txt
+  ```
+- An OpenAI API key.
+
+#### Execution
+1.  Set your OpenAI API key as an environment variable:
+    ```bash
+    export OPENAI_API_KEY="your_api_key_here"
+    ```
+    Alternatively, you can create a `.env` file in the repository root (next to `README.md`) with the line `OPENAI_API_KEY="your_api_key_here"`.
+2.  Run the main script from the root of the repository:
+    ```bash
+    python arc_solver/main.py
+    ```
+    By default, the script processes a small subset of tasks from the `data/v2/evaluation/` directory (currently configured for tasks with index 0 through 4, inclusive, for demonstration). You can modify the `start_index` and `end_index` variables directly in `arc_solver/main.py` to process different tasks or a larger batch.
+
+### Features
+
+#### Parallel Execution
+The `arc_solver/main.py` script supports processing multiple ARC tasks in parallel using `concurrent.futures.ProcessPoolExecutor`. This can significantly speed up the evaluation of multiple tasks. The number of worker processes defaults to the number of CPU cores available on the system, as returned by `os.cpu_count()`.
+
+#### Customizing Prompts
+The behavior of the AI solver can be customized by modifying its prompts, which are stored externally:
+
+*   **Initial Solver Prompt:** The primary instructions given to the LLM for solving tasks are loaded from:
+    `arc_solver/prompts/initial_prompt.txt`
+    Users can edit this file to change the base problem-solving strategy employed by the AI.
+
+*   **Evolved Prompts:** If the prompt evolution feature in `arc_solver/prompt_evolution.py` is fully active (currently, `evolve_prompt` saves new prompts but `main.py` uses a static initial prompt for each task), newly generated prompts by the LLM during a run would be saved to timestamped files in:
+    `arc_solver/prompts/evolved/`
+
+*   **Evaluation Prompt:** The system prompt used by the scoring mechanism (the `evaluate_solution` function within `arc_solver/main.py`) to analyze and comment on the correctness of a solution is loaded from:
+    `arc_solver/prompts/evaluation/evaluation_prompt.txt`
+
+#### Customizing Tools
+The grid manipulation tools available to the LLM are defined externally, allowing for easier modification and extension:
+
+*   **Tool Definitions:** Tool definitions are loaded from:
+    `arc_solver/tools/tool_definitions.json`
+    This file contains a JSON array of tool objects, following the format expected by the OpenAI API for function calling.
+
+*   **Modifying Tools:**
+    *   Users can modify the description, parameters, or behavior of existing tools by editing this JSON file.
+    *   New tools can be added by defining them in the JSON. Note that adding a new tool definition also requires implementing the corresponding Python logic for that tool within the `GridOperations` class located in `arc_solver/grid_ops.py`.
+
+### Output and Results
+
+When `arc_solver/main.py` is run, it creates a timestamped directory for each execution under `arc_solver/results/`. For example: `arc_solver/results/eval_run_YYYYMMDD_HHMMSS/`.
+
+Inside each run directory:
+*   A copy of the `initial_prompt.txt` (the version used for that specific run) is saved for reference.
+*   A `token_usage_summary.json` file tracks the OpenAI API token consumption for the entire run.
+*   For each ARC task processed, a subdirectory is created (e.g., named after the task's JSON filename like `03560426`). This task-specific directory contains:
+    *   `results.json`: Detailed results for the task, including the original input grid, expected output, the solver's predicted output, the score achieved, the LLM's confidence, and textual commentary from the evaluation.
+    *   `message_history.json`: The full conversation history between the solver and the LLM, including all reasoning steps and tool calls.
+    *   Images (`input.png`, `expected.png`, `predicted.png`): Visual representations of the respective grids.
+    *   `intermediate_states/`: A subdirectory containing:
+        *   `states.json`: A JSON file listing all intermediate grid states, the tools that were applied to reach them, and their descriptions.
+        *   Individual JSON and PNG files for each step (`step_XXX.json`, `step_XXX.png`), providing a snapshot of the grid at each stage of the solution process.
+
+This structured output allows for detailed analysis of the solver's performance, its decision-making process, and the evolution of the grid towards a solution.
