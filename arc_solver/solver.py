@@ -4,16 +4,83 @@ from io import BytesIO
 from typing import Dict, List, Optional, Union, Tuple
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from openai import OpenAI
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+import google.ai.generativelanguage as glm
 from grid_ops import GridOperations
 import os
 import time
 
+# Helper function to convert schema
+def convert_schema(schema_dict):
+    if not isinstance(schema_dict, dict):
+        return schema_dict
+
+    # Create a copy to avoid modifying the original
+    new_schema = schema_dict.copy()
+
+    if "type" in new_schema:
+        type_str = new_schema.pop("type").upper()
+        # Ensure TYPE_UNSPECIFIED is not used if not explicitly set
+        if type_str == "OBJECT":
+            new_schema["type_"] = glm.Type.OBJECT
+        elif type_str == "ARRAY":
+            new_schema["type_"] = glm.Type.ARRAY
+        elif type_str == "STRING":
+            new_schema["type_"] = glm.Type.STRING
+        elif type_str == "NUMBER": # OpenAPI uses "number" for float and double
+            new_schema["type_"] = glm.Type.NUMBER
+        elif type_str == "INTEGER":
+            new_schema["type_"] = glm.Type.INTEGER
+        elif type_str == "BOOLEAN":
+            new_schema["type_"] = glm.Type.BOOLEAN
+        # Add other type mappings if necessary
+
+    if "properties" in new_schema:
+        new_schema["properties"] = {
+            k: convert_schema(v) for k, v in new_schema["properties"].items()
+        }
+
+    if "items" in new_schema:
+        new_schema["items"] = convert_schema(new_schema["items"])
+
+    return new_schema
+
 class ARCSolver:
     def __init__(self, api_key: str, results_dir: str = None):
-        """Initialize the ARC solver with OpenAI API key."""
-        self.client = OpenAI(api_key=api_key)
-        self.tools = self._define_tools()
+        """Initialize the ARC solver with Gemini API key."""
+        genai.configure(api_key=api_key)
+
+        # Convert tool definitions
+        raw_tools = self._get_raw_tool_definitions()
+        converted_tools = []
+        for tool_def in raw_tools:
+            converted_parameters = None
+            if "parameters" in tool_def and tool_def["parameters"]:
+                 # Pass the whole parameters dict to convert_schema
+                converted_parameters_dict = convert_schema(tool_def["parameters"])
+                converted_parameters = glm.Schema(**converted_parameters_dict)
+
+            converted_tools.append(
+                glm.Tool(function_declarations=[
+                    glm.FunctionDeclaration(
+                        name=tool_def["name"],
+                        description=tool_def["description"],
+                        parameters=converted_parameters
+                    )
+                ])
+            )
+
+        self.client = genai.GenerativeModel(
+            model_name="gemini-1.5-pro-latest",
+            tools=converted_tools,
+            safety_settings={ # Add safety settings to avoid blocking
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+            }
+        )
         self.message_history = []
         self.intermediate_grids = []
         self.results_dir = results_dir
@@ -35,17 +102,19 @@ class ARCSolver:
         return {
             "input_tokens": self.total_input_tokens,
             "output_tokens": self.total_output_tokens,
-            "total_tokens": self.total_input_tokens + self.total_output_tokens
+            "total_tokens": self.total_input_tokens + self.total_output_tokens,
+            "candidates_token_count": 0, # Placeholder for Gemini specific counts
+            "prompt_token_count": 0 # Placeholder
         }
-        
-    def _define_tools(self) -> List[Dict]:
-        """Define the available tools for grid manipulation."""
+
+    def _get_raw_tool_definitions(self) -> List[Dict]:
+        """Get the raw tool definitions before conversion."""
+        # This method now just returns the list of dictionaries.
+        # The conversion to glm.Tool and glm.FunctionDeclaration happens in __init__.
         return [
             {
-                "type": "function",
                 "name": "copy_grid",
                 "description": "Copy the input grid to the output",
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -54,15 +123,12 @@ class ARCSolver:
                             "description": "Explanation of why this operation is being performed"
                         }
                     },
-                    "required": ["rationale"],
-                    "additionalProperties": False
+                    "required": ["rationale"]
                 }
             },
             {
-                "type": "function",
                 "name": "copy_selection",
                 "description": "Copy a selected area to one or more other places on the output grid",
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -74,9 +140,9 @@ class ARCSolver:
                             "type": "array",
                             "description": "List of positions to paste the selected area",
                             "items": {
-                                "type": "array",
+                                "type": "array", # This nested array needs careful handling
                                 "description": "(x, y) tuples",
-                                "items": {
+                                "items": { # Items of the inner array
                                     "type": "integer",
                                     "description": "Starting x or y coordinate of position"
                                 }
@@ -87,15 +153,12 @@ class ARCSolver:
                             "description": "Explanation of why this operation is being performed"
                         }
                     },
-                    "required": ["start_x", "start_y", "end_x", "end_y", "paste_origins", "rationale"],
-                    "additionalProperties": False
+                    "required": ["start_x", "start_y", "end_x", "end_y", "paste_origins", "rationale"]
                 }
             },
             {
-                "type": "function",
                 "name": "fill_pattern",
                 "description": "Fill tiles in a pattern with fixed interval and direction",
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -109,15 +172,12 @@ class ARCSolver:
                             "description": "Explanation of why this operation is being performed"
                         }
                     },
-                    "required": ["start_x", "start_y", "direction", "interval", "color", "rationale"],
-                    "additionalProperties": False
+                    "required": ["start_x", "start_y", "direction", "interval", "color", "rationale"]
                 }
             },
             {
-                "type": "function",
                 "name": "fill_rectangle",
                 "description": "Fill a rectangle with a given color",
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -131,15 +191,12 @@ class ARCSolver:
                             "description": "Explanation of why this operation is being performed"
                         }
                     },
-                    "required": ["x1", "y1", "x2", "y2", "color", "rationale"],
-                    "additionalProperties": False
+                    "required": ["x1", "y1", "x2", "y2", "color", "rationale"]
                 }
             },
             {
-                "type": "function",
                 "name": "translate",
                 "description": "Translate the grid by a given offset",
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -150,58 +207,47 @@ class ARCSolver:
                             "description": "Explanation of why this operation is being performed"
                         }
                     },
-                    "required": ["dx", "dy", "rationale"],
-                    "additionalProperties": False
+                    "required": ["dx", "dy", "rationale"]
                 }
             },
             {
-                "type": "function",
                 "name": "resize_grid",
                 "description": "Resize the output grid to MxN dimensions",
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "width": {
                             "type": "integer",
-                            "description": "The new width of the grid",
-                            "minimum": 1,
-                            "maximum": 100
+                            "description": "The new width of the grid (integer, min: 1, max: 100)"
                         },
                         "height": {
                             "type": "integer",
-                            "description": "The new height of the grid",
-                            "minimum": 1,
-                            "maximum": 100
+                            "description": "The new height of the grid (integer, min: 1, max: 100)"
                         },
                         "rationale": {
                             "type": "string",
                             "description": "Explanation of why this operation is being performed"
                         }
                     },
-                    "required": ["width", "height", "rationale"],
-                    "additionalProperties": False
+                    "required": ["width", "height", "rationale"]
                 }
             },
             {
-                "type": "function",
                 "name": "fill_tiles",
                 "description": "Fill specific tiles with given colors",
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "positions": {
                             "type": "array",
-                            "items": {
+                            "items": { # Items of the 'positions' array (which are objects)
                                 "type": "object",
                                 "properties": {
                                     "x": {"type": "integer"},
                                     "y": {"type": "integer"},
                                     "color": {"type": "integer"}
                                 },
-                                "required": ["x", "y", "color"],
-                                "additionalProperties": False
+                                "required": ["x", "y", "color"]
                             }
                         },
                         "rationale": {
@@ -209,35 +255,28 @@ class ARCSolver:
                             "description": "Explanation of why this operation is being performed"
                         }
                     },
-                    "required": ["positions", "rationale"],
-                    "additionalProperties": False
+                    "required": ["positions", "rationale"]
                 }
             },
             {
-                "type": "function",
                 "name": "finish",
                 "description": "Indicate that the solution is complete",
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "confidence": {
                             "type": "integer",
-                            "description": "Confidence score from 0-10 in the solution's correctness",
-                            "minimum": 0,
-                            "maximum": 10
+                            "description": "Confidence score from 0-10 in the solution's correctness (integer, min: 0, max: 10)"
                         },
                         "rationale": {
                             "type": "string",
                             "description": "Explanation of why the solution is complete and why the confidence score was chosen"
                         }
                     },
-                    "required": ["confidence", "rationale"],
-                    "additionalProperties": False
+                    "required": ["confidence", "rationale"]
                 }
             },
             {
-                "type": "function",
                 "name": "execute_python",
                 "description": "Execute Python code to modify the grid. The code has access to the grid as a numpy array (self.grid), grid dimensions (self.height, self.width), and numpy (np). Example:" + \
 """
@@ -249,7 +288,6 @@ for y in range(self.height):
         else:
             self.grid[y, x] = 0
 """,
-                "strict": True,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -262,8 +300,7 @@ for y in range(self.height):
                             "description": "Explanation of what the Python code does and why it's being used"
                         }
                     },
-                    "required": ["code", "rationale"],
-                    "additionalProperties": False
+                    "required": ["code", "rationale"]
                 }
             }
         ]
@@ -405,12 +442,42 @@ for y in range(self.height):
             # Handle OpenAI message objects
             return message.model_dump()
         elif isinstance(message, dict):
-            # Already a dictionary
-            return message
+            # Recursively process parts of the message if it's a dictionary
+            # This is important for messages that have 'parts' which might contain images
+            processed_message = {}
+            for key, value in message.items():
+                if key == "parts" and isinstance(value, list):
+                    processed_message[key] = [self._message_to_dict(part) for part in value]
+                elif isinstance(value, Image.Image): # Handle PIL Image objects in parts
+                    buffered = BytesIO()
+                    value.save(buffered, format="PNG")
+                    img_str = base64.b64encode(buffered.getvalue()).decode()
+                    processed_message[key] = {"type": "image_base64", "data": img_str, "format": value.format}
+                else:
+                    processed_message[key] = value # Keep other parts as is, assuming they are serializable
+            return processed_message
+        elif isinstance(message, Image.Image): # Handle if a message part itself is an Image
+            buffered = BytesIO()
+            message.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode()
+            # Return a dictionary structure that indicates this was an image
+            return {"type": "image_base64", "data": img_str, "format": message.format}
+        elif hasattr(message, 'parts') and isinstance(message.parts, list): # For glm.Content objects
+            # Create a dict representation, and process its parts
+            content_dict = {"role": message.role, "parts": [self._message_to_dict(part) for part in message.parts]}
+            return content_dict
+        elif hasattr(message, 'text') and isinstance(message.text, str): # For glm.Part with text
+            return {"type": "text", "text": message.text}
+        # Add more specific handlers if other non-serializable types are encountered in messages
         else:
             # Fallback for other types
-            return str(message)
-            
+            try:
+                # Attempt to convert to string as a last resort
+                return str(message)
+            except Exception:
+                # If str() fails, provide a placeholder to prevent crashing serialization
+                return f"Object of type {message.__class__.__name__} is not JSON serializable (and failed str conversion)"
+
     def _save_message_history(self):
         """Save the current message history in real-time."""
         if not self.current_task_dir:
@@ -452,101 +519,115 @@ for y in range(self.height):
         
         # Prepare the system message with tools
         system_message = {
-            "role": "developer",
-            "content": ("You are an ARC grid-puzzle solver. You will be given task demonstrations, from which you can infer "
-                         "rules and patterns that define the task. You will then be given an input grid and tools to generate "
-                         "the solution/output grid.\n"
-                         f"{evolved_instructions}"
-                         "\n\nFirst, return your reasoning about what the underlying rules and possible solution should be. "
-                         "Next, execute the tool calls to generate the output grid (never output the grid directly.) "
-                         "Once each tool call returns, the user will send the updated representation of the output grid. "
-                         "Continue with the tool calls until you are confident in your solution, then use the finish tool "
-                         "with a confidence score. Never send a message without a tool call!")
+            "role": "system",  # Gemini uses "system" role for system messages
+            "parts": [  # Gemini uses "parts" for content
+                ("You are an ARC grid-puzzle solver. You will be given task demonstrations, from which you can infer "
+                 "rules and patterns that define the task. You will then be given an input grid and tools to generate "
+                 "the solution/output grid.\n"
+                 f"{evolved_instructions}"
+                 "\n\nFirst, return your reasoning about what the underlying rules and possible solution should be. "
+                 "Next, execute the tool calls to generate the output grid (never output the grid directly.) "
+                 "Once each tool call returns, the user will send the updated representation of the output grid. "
+                 "Continue with the tool calls until you are confident in your solution, then use the finish tool "
+                 "with a confidence score. Never send a message without a tool call!")
+            ]
         }
         
-        # Add system message to log
+        # Add system message to log (system_message is already a dict)
         self.message_history.append(system_message)
         self._save_message_history()
         
         # Prepare the user message with context
-        user_message = {
-            "role": "user",
-            "content": []
-        }
+        # user_message_parts will contain actual Image objects
+        user_message_parts = []
         
         # Add training examples sequentially
         for i, demo in enumerate(task_json.get("train", []), 1):
             # Add input
-            user_message["content"].append({
-                "type": "input_text",
-                "text": f"Training input {i}:\n{json.dumps(demo['input'])}"
-            })
-            user_message["content"].append({
-                "type": "input_image",
-                "image_url": f"data:image/png;base64,{self._grid_to_image(demo['input'])}"
-            })
+            user_message_parts.append(f"Training input {i}:\n{json.dumps(demo['input'])}")
+            user_message_parts.append(Image.open(BytesIO(base64.b64decode(self._grid_to_image(demo['input'])))))
             
             # Add output
-            user_message["content"].append({
-                "type": "input_text",
-                "text": f"Training output {i}:\n{json.dumps(demo['output'])}"
-            })
-            user_message["content"].append({
-                "type": "input_image",
-                "image_url": f"data:image/png;base64,{self._grid_to_image(demo['output'])}"
-            })
+            user_message_parts.append(f"Training output {i}:\n{json.dumps(demo['output'])}")
+            user_message_parts.append(Image.open(BytesIO(base64.b64decode(self._grid_to_image(demo['output'])))))
         
         # Add the current input grid
-        user_message["content"].append({
-            "type": "input_text",
-            "text": f"\nTask input grid:\n{json.dumps(input_grid)}"
-        })
-        user_message["content"].append({
-            "type": "input_image",
-            "image_url": f"data:image/png;base64,{self._grid_to_image(input_grid)}"
-        })
+        user_message_parts.append(f"\nTask input grid:\n{json.dumps(input_grid)}")
+        user_message_parts.append(Image.open(BytesIO(base64.b64decode(self._grid_to_image(input_grid)))))
         
-        # Add user message to log
+        user_message = {
+            "role": "user",
+            "parts": user_message_parts
+        }
+
+        # Add user message to log. user_message is a dict with 'role' and 'parts'.
+        # The 'parts' can contain Image objects. _message_to_dict will handle them.
         self.message_history.append(user_message)
         self._save_message_history()
         
-        # Initialize messages list to pass to gpt
-        messages = [system_message, user_message]
+        # Initialize chat history for the Gemini model.
+        # This needs to be a list of glm.Content objects.
+        # System message is already a dict, user_message parts include Image objects.
+        # We need to convert these to glm.Content before starting the chat.
+
+        chat_history_for_model = []
+        # Convert system message dict to glm.Content
+        if system_message["role"] == "system": # Gemini SDK might prefer "system" for system instructions.
+                                              # Or it might be part of the model config, not chat history.
+                                              # For now, let's assume it's part of history if needed.
+                                              # The SDK usually takes system_instruction separately.
+                                              # Let's assume our current structure of just passing it as a message is fine.
+            chat_history_for_model.append(glm.Content(role="user", parts=[glm.Part(text=system_message["parts"][0])])) # Simplified for now
         
+        # Convert initial user message (with images) to glm.Content
+        glm_user_parts = []
+        for part in user_message["parts"]:
+            if isinstance(part, Image.Image):
+                # Convert PIL Image to glm.Part with inline_data (Blob)
+                buffered = BytesIO()
+                part.save(buffered, format="PNG") # Assuming PNG, adjust if other formats are used
+                img_bytes = buffered.getvalue()
+                blob = glm.Blob(mime_type="image/png", data=img_bytes)
+                glm_user_parts.append(glm.Part(inline_data=blob))
+            else: # Assuming text parts
+                glm_user_parts.append(glm.Part(text=str(part)))
+        chat_history_for_model.append(glm.Content(role="user", parts=glm_user_parts))
+
+        # `messages_for_log` list will store the dict representations for JSON logging
+        messages_for_log = [self._message_to_dict(msg) for msg in chat_history_for_model]
+
         # Loop until finish tool is called
         step = 1
-        # previous_response_id = None
+        self.chat_session = None # Initialize chat session
+
         while True:
-            # Get completion from responses API
+            # Get completion from Gemini API
             max_retries = 3
             retry_count = 0
+            response = None # Ensure response is defined
+
             while retry_count < max_retries:
                 try:
-                    response = self.client.responses.create(
-                        model="o4-mini",
-                        input=messages,
-                        tools=self.tools,
-                        tool_choice="auto",
-                        reasoning={
-                            "effort": "medium",
-                            "summary": "auto"
-                        },
-                        truncation="auto",
-                        # store=False,
-                        # include=["reasoning.encrypted_content"]
-                    )
+                    if self.chat_session is None:
+                        # Filter out any non-Content objects from chat_history_for_model before starting chat
+                        valid_chat_history = [msg for msg in chat_history_for_model if isinstance(msg, glm.Content)]
+                        self.chat_session = self.client.start_chat(history=valid_chat_history)
+
+                    # The content for send_message should be the parts of the last user message.
+                    # The last message in chat_history_for_model is what we want to send.
+                    last_message_content = chat_history_for_model[-1].parts
+                    response = self.chat_session.send_message(last_message_content)
                     
-                    # Print token counts if available
-                    if hasattr(response, 'usage'):
-                        print(f"Token usage - Input: {response.usage.input_tokens}, Output: {response.usage.output_tokens}, Total: {response.usage.total_tokens}")
-                        if hasattr(response.usage, 'input_tokens_details'):
-                            print(f"Input tokens details - Cached: {response.usage.input_tokens_details.cached_tokens}")
-                        if hasattr(response.usage, 'output_tokens_details'):
-                            print(f"Output tokens details - Reasoning: {response.usage.output_tokens_details.reasoning_tokens}")
-                        
-                        # Update total token counts
-                        self.total_input_tokens += response.usage.input_tokens
-                        self.total_output_tokens += response.usage.output_tokens
+                    # Token counting for Gemini
+                    if hasattr(response, 'usage_metadata'):
+                        if hasattr(response.usage_metadata, 'prompt_token_count'):
+                            self.total_input_tokens += response.usage_metadata.prompt_token_count
+                            print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+                        if hasattr(response.usage_metadata, 'candidates_token_count'):
+                             self.total_output_tokens += response.usage_metadata.candidates_token_count
+                             print(f"Candidates tokens: {response.usage_metadata.candidates_token_count}")
+                        if hasattr(response.usage_metadata, 'total_token_count'):
+                            print(f"Total tokens: {response.usage_metadata.total_token_count}")
                     
                     break  # Success, exit retry loop
                     
@@ -556,49 +637,36 @@ for y in range(self.height):
                     
                     if retry_count == max_retries:
                         print("Max retries reached. Skipping this task.")
-                        return None, 0  # Return None grid and 0 confidence to indicate task should be skipped
+                        self.chat_session = None
+                        return None, 0
                     
-                    # Wait before retrying (exponential backoff)
                     time.sleep(2 ** retry_count)
 
-            # add context
-            messages += response.output
+            if response is None: # Should not happen if retry logic is correct, but as a safeguard
+                print("Failed to get response from API after retries.")
+                self.chat_session = None
+                return None, 0
 
-            # Process all items in the response output
-            for item in response.output:
-                if item.type == "reasoning":                    
-                    # # Add reasoning to context
-                    # messages.append({
-                    #     "type": "reasoning",
-                    #     "id": item.id,
-                    #     "summary": [{"text": s.text, "type": s.type} for s in item.summary] if item.summary else []
-                    # })
+            # Add model's response to chat_history_for_model (for next turn) and messages_for_log (for JSON)
+            model_response_content = glm.Content(role="model", parts=response.parts)
+            chat_history_for_model.append(model_response_content)
+            messages_for_log.append(self._message_to_dict(model_response_content))
+            self.message_history.append(self._message_to_dict(model_response_content)) # Update main history for saving
+            self._save_message_history()
 
-                    # Add reasoning to log
-                    summary_texts = [summary.text for summary in item.summary]
-                    if summary_texts:  # Only append if there are actual summary texts
-                        self.message_history.append({
-                            "role": "assistant",
-                            "content": "Reasoning:\n" + "\n".join(summary_texts)
-                        })
-                        self._save_message_history()
-                elif item.type == "function_call":
-                    function_call = {
-                        "type": "function_call",
-                        "call_id": item.call_id,
-                        "name": item.name,
-                        "arguments": item.arguments
-                    }
+            # Process function calls
+            for part in response.parts:
+                if part.function_call:
+                    function_call = part.function_call
+                    function_name = function_call.name
+                    function_args = {key: value for key, value in function_call.args.items()}
 
-                    # # Add to context
-                    # messages.append(function_call)
-
-                    # log the function call
-                    self.message_history.append(function_call)
+                    # Log the function call
+                    self.message_history.append({
+                        "role": "assistant", # Or "model" if Gemini distinguishes
+                        "content": f"Function call: {function_name}({json.dumps(function_args)})"
+                    })
                     self._save_message_history()
-                    
-                    function_name = item.name
-                    function_args = json.loads(item.arguments)
                     
                     # Apply the appropriate tool operation
                     if function_name == "fill_tiles":
@@ -640,89 +708,100 @@ for y in range(self.height):
                         result = grid_ops.execute_python_code(function_args["code"])
                         if not result["success"]:
                             # If there was an error, add it to messages and continue
-                            tool_response = {
-                                "type": "function_call_output",
-                                "call_id": item.call_id,
-                                "output": result["message"]
-                            }
-                            messages.append(tool_response)
-                            self.message_history.append(tool_response)
+                            tool_response_part = {"function_response": {
+                                "name": function_name,
+                                "response": {"content": result["message"]}
+                            }}
+                            messages.append({"role": "user", "parts": [tool_response_part]}) # Gemini expects tool response from user role
+                            self.message_history.append({"role": "user", "parts": [tool_response_part]})
                             self._save_message_history()
                             continue
                     elif function_name == "finish":
                         current_grid = grid_ops.get_grid()
-                        current_image = self._grid_to_image(current_grid)
+                        self.chat_session = None # Reset chat session for next task
                         return current_grid, function_args["confidence"]
                     
-                    # Add tool response to messages
-                    tool_response = {
-                        "type": "function_call_output",
-                        "call_id": item.call_id,
-                        "output": json.dumps({"status": "success"})
-                    }
-                    messages.append(tool_response)
-
-                    # log the tool response
-                    self.message_history.append(tool_response)
+                    # Add tool response to messages for Gemini
+                    function_response_content = glm.Content(
+                        role="user", # Gemini expects function responses from 'user' role in the chat history
+                        parts=[glm.Part(
+                            function_response=glm.FunctionResponse(
+                                name=function_name,
+                                response={"content": json.dumps({"status": "success"})}
+                            )
+                        )]
+                    )
+                    messages.append(self._message_to_dict(function_response_content)) # For JSON log
+                    self.message_history.append(self._message_to_dict(function_response_content))
                     self._save_message_history()
-                else:
-                    # eg. type == "message"
-                    self.message_history.append(item)
-                    self._save_message_history()
+                    # Note: The actual `chat.history` for the Gemini SDK is updated internally by `send_message`.
+                    # We are maintaining `messages` primarily for our own logging and potentially for restarting chats.
 
-            # Check if reponse does not have a tool call, if so, skip rendering grid
-            if not any(item.type == "function_call" for item in response.output):
-                print("Response does not have a tool call!")
-                continue
-            
-            # Save intermediate grid state after all tool calls
-            current_grid = grid_ops.get_grid()
-            function_calls = [item for item in response.output if item.type == "function_call"]
+            # Check if response does not have a tool call
+            has_function_call = any(part.function_call for part in response.parts) if response.parts else False
+            if not has_function_call:
+                print("Response does not have a tool call or parts are empty!")
+                # If there's text output from the model without a function call, log it
+                if response.text:
+                    self.message_history.append({
+                        "role": "model",
+                        "content": "Reasoning (no function call):\n" + response.text
+                    })
+                    self._save_message_history()
+                # If no function call and no text, it might be an issue or an empty response.
+                # Depending on desired behavior, might need to retry or handle as error.
+                # For now, if it was just reasoning, we continue to allow the user to send the next grid state.
+                # If the model is stuck and not calling 'finish', this loop could go on.
+                # Add a safety break or more sophisticated check if needed.
+                if not response.text: # If truly empty response
+                     print("Empty response from model and no function call.")
+                     # Decide if this is an error or if we should just wait for user grid update
+                     # For now, let's assume it's waiting for the next grid state if no text.
+
+            # Save intermediate grid state only if there were function calls that modified the grid
+            current_grid = grid_ops.get_grid() # Get current grid regardless
+            if has_function_call:
+                function_calls_in_response = [part.function_call for part in response.parts if part.function_call]
             state = {
                 "step": step,
                 "grid": current_grid,
-                "tool": "multiple" if len(function_calls) > 1 else function_calls[0].name if function_calls else "none",
-                "description": ", ".join([item.name for item in function_calls])
+                "tool": "multiple" if len(function_calls_in_response) > 1 else function_calls_in_response[0].name if function_calls_in_response else "none",
+                "description": ", ".join([fc.name for fc in function_calls_in_response])
             }
             self.intermediate_grids.append(state)
             self._save_intermediate_state(**state)
             step += 1
-
-            for i, m in enumerate(messages):
-                if isinstance(m, dict) and m.get("role") == "user" and m.get("content")[0].get("type") == "input_text" and m.get("content")[0].get("text").startswith("Current output grid state:"):
-                    messages[i] = {
-                        "role": "user",
-                        "content": [
-                            {"type": "input_text", "text": "Current output grid state: [removed for brevity]"}
-                        ]
-                    }
             
-            # Add the current grid state to the message history
-            current_image = self._grid_to_image(current_grid)
-            grid_update = {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f"Current output grid state:\n{json.dumps(current_grid)}"
-                    },
-                    {
-                        "type": "input_image",
-                        "image_url": f"data:image/png;base64,{current_image}"
-                    },
-                    {
-                        "type": "input_text",
-                        "text": "Is this what you expected? (don't reply, just think about it as you solve the task)"
-                    }
-                ]
-            }
-            messages.append(grid_update) 
+            # Add the current grid state to the message history for the next turn with Gemini
+            current_image_bytes = base64.b64decode(self._grid_to_image(current_grid))
+            grid_update_parts = [
+                f"Current output grid state:\n{json.dumps(current_grid)}",
+                Image.open(BytesIO(current_image_bytes)),
+                "Is this what you expected? (don't reply, just think about it as you solve the task)"
+            ]
 
-            # log the grid update
-            self.message_history.append(grid_update)
+            # This becomes the new user message content for the next turn.
+            # It will be added to chat_history_for_model before the next send_message call.
+
+            user_update_glm_parts = []
+            for part_content in grid_update_parts:
+                if isinstance(part_content, Image.Image):
+                    buffered = BytesIO()
+                    part_content.save(buffered, format="PNG")
+                    img_bytes = buffered.getvalue()
+                    blob = glm.Blob(mime_type="image/png", data=img_bytes)
+                    user_update_glm_parts.append(glm.Part(inline_data=blob))
+                else:
+                    user_update_glm_parts.append(glm.Part(text=str(part_content)))
+
+            user_update_content = glm.Content(role="user", parts=user_update_glm_parts)
+            chat_history_for_model.append(user_update_content) # Add to history for next model call
+            messages_for_log.append(self._message_to_dict(user_update_content)) # For JSON log
+            self.message_history.append(self._message_to_dict(user_update_content)) # Update main history
             self._save_message_history()
 
             # check solving budget
-            if self.total_input_tokens > self.budget:
+            if (self.total_input_tokens + self.total_output_tokens) > self.budget:
                 print("Solving budget exceeded. Outputting current grid.")
+                self.chat_session = None # Reset chat session
                 return grid_ops.get_grid(), 0

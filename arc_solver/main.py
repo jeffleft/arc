@@ -88,20 +88,28 @@ def evaluate_solution(predicted: List[List[int]], expected: List[List[int]], con
     expected_image = solver._grid_to_image(expected)
     
     # Get LLM commentary
-    response = solver.client.chat.completions.create(
-        model="gpt-4.1",
-        # max_tokens=512,
-        messages=[
-            {
-                "role": "system",
-                "content": "You are an expert at analyzing ARC puzzle solutions. Your task is to explain why a solution is correct or incorrect, focusing on the underlying rules inferred. No need to directly output any grids; just be descriptive. Keep it concise without missing any details. Skip the formatting/markdown."
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"""Analyze this ARC puzzle solution:
+    # Initialize the Gemini model for evaluation - ensure ARCSolver's client is used if it's already a Gemini client
+    # or initialize a new one if evaluate_solution is meant to be standalone or use a different model.
+    # For this modification, we'll assume solver.client is already a Gemini client.
+    if not hasattr(solver.client, 'generate_content'): # Check if it's a Gemini client
+        # If not, and you need a specific Gemini model for evaluation:
+        # import google.generativeai as genai
+        # genai.configure(api_key=os.getenv("GOOGLE_API_KEY")) # Ensure GOOGLE_API_KEY is set
+        # eval_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest")
+        # This part depends on how API keys and client instances are managed.
+        # For now, we assume solver.client is already configured for Gemini.
+        pass
+
+    eval_model = solver.client # Use the client from the solver instance
+
+    # Prepare content for Gemini API
+    # Gemini expects a list of parts, which can be text or images (PIL.Image objects)
+    from PIL import Image
+    from io import BytesIO
+
+    prompt_parts = [
+        "You are an expert at analyzing ARC puzzle solutions. Your task is to explain why a solution is correct or incorrect, focusing on the underlying rules inferred. No need to directly output any grids; just be descriptive. Keep it concise without missing any details. Skip the formatting/markdown.",
+        f"""Analyze this ARC puzzle solution:
 
 Expected output (JSON):
 {json.dumps(expected)}
@@ -122,34 +130,27 @@ Please explain why the solution is {'correct' if is_correct else 'incorrect'}. F
 3. Any insights about the underlying rule or concept
 4. How the model went wrong/right with its plan
 
-Finally, also output a numeric score between 0 and 10 for the model's approach."""
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{expected_image}"
-                        }
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{predicted_image}"
-                        }
-                    }
-                ]
-            }
-        ]
-    )
-    
-    commentary = response.choices[0].message.content
+Finally, also output a numeric score between 0 and 10 for the model's approach.""",
+        Image.open(BytesIO(base64.b64decode(expected_image))),
+        Image.open(BytesIO(base64.b64decode(predicted_image)))
+    ]
+
+    response = eval_model.generate_content(prompt_parts) # Use generate_content for Gemini
+
+    commentary = response.text # Gemini response text
     return 1 if is_correct else 0, commentary
 
 def main():
     # Load environment variables
     load_dotenv()
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY") # This will need to be GOOGLE_API_KEY for Gemini
+    # It's better to use a generic name like API_KEY or specific like GEMINI_API_KEY
+    # For now, let's assume ARCSolver handles the API key type correctly or uses a new env var.
+    # If ARCSolver was changed to use Gemini, it should expect GOOGLE_API_KEY or similar.
+    # We will assume GOOGLE_API_KEY is what ARCSolver (and by extension, this script) will use.
+    api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
+        raise ValueError("GOOGLE_API_KEY environment variable not set")
         
     # Create results directory with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

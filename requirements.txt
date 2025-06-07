@@ -6,3 +6,5 @@ tqdm
 python-dotenv
 matplotlib
 seaborn
+google-auth
+google-generativeai
