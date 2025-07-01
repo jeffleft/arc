@@ -109,28 +109,7 @@ class MultiAgentARCSolver:
                     "additionalProperties": False
                 }
             },
-            {
-                "type": "function",
-                "name": "fill_pattern",
-                "description": "Fill tiles in a pattern with fixed interval and direction",
-                "strict": True,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "start_x": {"type": "integer"},
-                        "start_y": {"type": "integer"},
-                        "direction": {"type": "string", "enum": ["horizontal", "vertical"]},
-                        "interval": {"type": "integer"},
-                        "color": {"type": "integer"},
-                        "rationale": {
-                            "type": "string",
-                            "description": "Explanation of why this operation is being performed"
-                        }
-                    },
-                    "required": ["start_x", "start_y", "direction", "interval", "color", "rationale"],
-                    "additionalProperties": False
-                }
-            },
+
             {
                 "type": "function",
                 "name": "fill_rectangle",
@@ -153,25 +132,7 @@ class MultiAgentARCSolver:
                     "additionalProperties": False
                 }
             },
-            {
-                "type": "function",
-                "name": "translate",
-                "description": "Translate the grid by a given offset",
-                "strict": True,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "dx": {"type": "integer"},
-                        "dy": {"type": "integer"},
-                        "rationale": {
-                            "type": "string",
-                            "description": "Explanation of why this operation is being performed"
-                        }
-                    },
-                    "required": ["dx", "dy", "rationale"],
-                    "additionalProperties": False
-                }
-            },
+
             {
                 "type": "function",
                 "name": "resize_grid",
@@ -474,7 +435,7 @@ for y in range(self.height):
                 "2. A step-by-step plan using the available tool names and parameters\n"
                 "3. Your confidence level (0-10) in this approach\n"
                 "4. Your reasoning process\n\n"
-                "Available tools: copy_grid, copy_selection, fill_pattern, fill_rectangle, translate, "
+                "Available tools: copy_grid, copy_selection, fill_rectangle, "
                 "resize_grid, fill_tiles, execute_python\n\n"
                 "Format your response as a detailed analysis followed by a JSON plan with the structure:\n"
                 "{\n"
@@ -626,14 +587,6 @@ for y in range(self.height):
                     grid_ops.copy_grid()
                 elif tool_name == "fill_tiles":
                     grid_ops.fill_tiles(params.get("positions", []))
-                elif tool_name == "fill_pattern":
-                    grid_ops.fill_pattern(
-                        params.get("start_x", 0),
-                        params.get("start_y", 0),
-                        params.get("direction", "horizontal"),
-                        params.get("interval", 1),
-                        params.get("color", 0)
-                    )
                 elif tool_name == "fill_rectangle":
                     grid_ops.fill_rectangle(
                         params.get("x1", 0),
@@ -641,11 +594,6 @@ for y in range(self.height):
                         params.get("x2", 0),
                         params.get("y2", 0),
                         params.get("color", 0)
-                    )
-                elif tool_name == "translate":
-                    grid_ops.translate(
-                        params.get("dx", 0),
-                        params.get("dy", 0)
                     )
                 elif tool_name == "resize_grid":
                     grid_ops.resize_grid(
@@ -801,14 +749,6 @@ for y in range(self.height):
                     grid_ops.copy_grid()
                 elif tool_name == "fill_tiles":
                     grid_ops.fill_tiles(params.get("positions", []))
-                elif tool_name == "fill_pattern":
-                    grid_ops.fill_pattern(
-                        params.get("start_x", 0),
-                        params.get("start_y", 0),
-                        params.get("direction", "horizontal"),
-                        params.get("interval", 1),
-                        params.get("color", 0)
-                    )
                 elif tool_name == "fill_rectangle":
                     grid_ops.fill_rectangle(
                         params.get("x1", 0),
@@ -816,11 +756,6 @@ for y in range(self.height):
                         params.get("x2", 0),
                         params.get("y2", 0),
                         params.get("color", 0)
-                    )
-                elif tool_name == "translate":
-                    grid_ops.translate(
-                        params.get("dx", 0),
-                        params.get("dy", 0)
                     )
                 elif tool_name == "resize_grid":
                     grid_ops.resize_grid(

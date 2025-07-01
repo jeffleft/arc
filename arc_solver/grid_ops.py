@@ -19,17 +19,7 @@ class GridOperations:
         """Copy the input grid to the output"""
         self.grid = self.input_grid.copy()
         
-    def fill_pattern(self, start_x: int, start_y: int, direction: str, interval: int, color: int) -> None:
-        """Fill tiles in a pattern with fixed interval and direction."""
-        if direction == "horizontal":
-            for x in range(start_x, self.width, interval):
-                if 0 <= x < self.width and 0 <= start_y < self.height:
-                    self.grid[start_y, x] = color
-        else:  # vertical
-            for y in range(start_y, self.height, interval):
-                if 0 <= start_x < self.width and 0 <= y < self.height:
-                    self.grid[y, start_x] = color
-                    
+
     def fill_rectangle(self, x1: int, y1: int, x2: int, y2: int, color: int) -> None:
         """Fill a rectangle with a given color."""
         x1, x2 = min(x1, x2), max(x1, x2)
@@ -43,29 +33,7 @@ class GridOperations:
         
         self.grid[y1:y2+1, x1:x2+1] = color
         
-    def translate(self, dx: int, dy: int) -> None:
-        """Translate the grid by a given offset."""
-        # Create a new grid filled with zeros
-        new_grid = np.zeros_like(self.grid)
-        
-        # Calculate the translation bounds
-        x_start = max(0, dx)
-        x_end = min(self.width, self.width + dx)
-        y_start = max(0, dy)
-        y_end = min(self.height, self.height + dy)
-        
-        # Calculate the source bounds
-        src_x_start = max(0, -dx)
-        src_x_end = min(self.width, self.width - dx)
-        src_y_start = max(0, -dy)
-        src_y_end = min(self.height, self.height - dy)
-        
-        # Copy the translated portion
-        new_grid[y_start:y_end, x_start:x_end] = self.grid[src_y_start:src_y_end, src_x_start:src_x_end]
-        
-        # Update the grid
-        self.grid = new_grid
-        
+
     def resize_grid(self, width: int, height: int) -> None:
         """Resize the grid to MxN dimensions.
         

@@ -91,28 +91,7 @@ class ARCSolver:
                     "additionalProperties": False
                 }
             },
-            {
-                "type": "function",
-                "name": "fill_pattern",
-                "description": "Fill tiles in a pattern with fixed interval and direction",
-                "strict": True,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "start_x": {"type": "integer"},
-                        "start_y": {"type": "integer"},
-                        "direction": {"type": "string", "enum": ["horizontal", "vertical"]},
-                        "interval": {"type": "integer"},
-                        "color": {"type": "integer"},
-                        "rationale": {
-                            "type": "string",
-                            "description": "Explanation of why this operation is being performed"
-                        }
-                    },
-                    "required": ["start_x", "start_y", "direction", "interval", "color", "rationale"],
-                    "additionalProperties": False
-                }
-            },
+
             {
                 "type": "function",
                 "name": "fill_rectangle",
@@ -135,25 +114,7 @@ class ARCSolver:
                     "additionalProperties": False
                 }
             },
-            {
-                "type": "function",
-                "name": "translate",
-                "description": "Translate the grid by a given offset",
-                "strict": True,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "dx": {"type": "integer"},
-                        "dy": {"type": "integer"},
-                        "rationale": {
-                            "type": "string",
-                            "description": "Explanation of why this operation is being performed"
-                        }
-                    },
-                    "required": ["dx", "dy", "rationale"],
-                    "additionalProperties": False
-                }
-            },
+
             {
                 "type": "function",
                 "name": "resize_grid",
@@ -605,14 +566,7 @@ for y in range(self.height):
                         grid_ops.fill_tiles(function_args["positions"])
                     elif function_name == "copy_grid":
                         grid_ops.copy_grid()
-                    elif function_name == "fill_pattern":
-                        grid_ops.fill_pattern(
-                            function_args["start_x"],
-                            function_args["start_y"],
-                            function_args["direction"],
-                            function_args["interval"],
-                            function_args["color"]
-                        )
+
                     elif function_name == "fill_rectangle":
                         grid_ops.fill_rectangle(
                             function_args["x1"],
@@ -621,11 +575,7 @@ for y in range(self.height):
                             function_args["y2"],
                             function_args["color"]
                         )
-                    elif function_name == "translate":
-                        grid_ops.translate(
-                            function_args["dx"],
-                            function_args["dy"]
-                        )
+
                     elif function_name == "resize_grid":
                         grid_ops.resize_grid(function_args["width"], function_args["height"])
                     elif function_name == "copy_selection":
